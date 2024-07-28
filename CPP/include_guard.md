@@ -1,0 +1,84 @@
+### Include Guard 的作用
+
+在大型项目中，头文件可能会被多次包含，直接或间接地。例如，A 文件包含 B 文件，B 文件包含 C 文件，如果没有 Include Guard，C 文件的内容可能会被包含多次，导致编译错误。
+
+Include Guard 通过条件编译来解决这个问题。它利用预处理器指令来检查一个唯一的宏是否已经定义，如果没有定义，则定义它并包含头文件的内容；否则，跳过头文件的内容。
+
+### 代码解释
+
+
+
+```
+#ifndef LOCKER_H
+#define LOCKER_H
+
+// 头文件的实际内容
+// 比如函数声明、宏定义、类型定义等
+
+#endif // LOCKER_H
+```
+
+- `#ifndef LOCKER_H`：检查宏 `LOCKER_H` 是否未定义。如果未定义，则继续执行下面的代码。
+- `#define LOCKER_H`：定义宏 `LOCKER_H`，表示这个头文件已经被包含过一次了。
+- 头文件的实际内容：在 `#define LOCKER_H` 之后的部分是头文件的实际内容，比如函数声明、宏定义、类型定义等。
+- `#endif`：结束条件编译块。
+
+### 工作原理
+
+1. **第一次包含头文件时**：
+   - `LOCKER_H` 宏尚未定义。
+   - `#ifndef LOCKER_H` 条件为真，继续执行。
+   - `#define LOCKER_H` 定义宏 `LOCKER_H`。
+   - 包含头文件的实际内容。
+2. **后续包含头文件时**：
+   - `LOCKER_H` 宏已经定义。
+   - `#ifndef LOCKER_H` 条件为假，跳过头文件的实际内容。
+
+### 示例
+
+假设 `locker.h` 文件内容如下：
+
+
+
+```
+#ifndef LOCKER_H
+#define LOCKER_H
+
+void lock();
+void unlock();
+
+#endif // LOCKER_H
+```
+
+#### 包含顺序
+
+
+
+```
+#include "locker.h"
+#include "locker.h"
+```
+
+由于 Include Guard 的存在，第二次包含 `locker.h` 时，预处理器会跳过头文件的内容，避免重复定义 `lock` 和 `unlock` 函数。
+
+### 其他实现方式
+
+C++11 引入了 `#pragma once` 作为一种简化的 Include Guard 方式。它的作用与 Include Guard 类似，但语法更简洁：
+
+
+
+```
+#pragma once
+
+void lock();
+void unlock();
+```
+
+### 总结
+
+Include Guard 是一种防止头文件重复包含的技术，确保头文件内容在同一个编译单元中只被包含一次，从而避免重复定义的错误。通过条件编译指令 `#ifndef`、`#define` 和 `#endif` 实现，它是 C 和 C++ 头文件的标准写法之一。
+
+- **传统 Include Guard** 是标准的、广泛支持的方式，适用于所有 C 和 C++ 编译器。
+- **`#pragma once`** 更简洁，在现代编译器中被广泛支持，通常也是安全可靠的选择。
+
+在大多数情况下，`#pragma once` 更方便且易于维护，但如果需要确保代码的最大兼容性（特别是跨平台或与旧编译器的兼容性），使用传统的 Include Guard 可能更合适。
