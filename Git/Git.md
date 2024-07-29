@@ -20,7 +20,7 @@
 
 ## 特殊文件与特殊指针
 
-![file-special](E:\Git\img\file-special.png)
+![file-special](./Git.assets/file-special.png)
 
 `main/master`	主分支
 
@@ -40,15 +40,15 @@
 
 ## 四个区域
 
-![regions](E:\Git\img\regions.png)
+![regions](./Git.assets/regions.png)
 
-![4-regions](E:\Git\img\4-regions.png)
+![4-regions](./Git.assets/4-regions.png)
 
 ## 文件状态
 
-![file-status](E:\Git\img\file-status.png)
+![file-status](./Git.assets/file-status.png)
 
-![file-status-2](E:\Git\img\file-status-2.png)
+![file-status-2](./Git.assets/file-status-2.png)
 
 ## 查看仓库状态或差异
 
@@ -84,7 +84,7 @@
 
 `--mixed`参数表示重置暂存区
 
-![git-reset](E:\Git\img\git-reset.png)
+![git-reset](./Git.assets/git-reset.png)
 
 ## 删除文件
 
@@ -144,6 +144,18 @@
 
 `git fetch <remote-name> <branch-name>`	Fetch某一个特定的远程分支
 
+> **`git fetch`**：
+>
+> - 只从远程仓库获取更新的数据。
+> - 不会自动合并这些更改。
+> - 允许你查看和比较更新，然后手动合并。(`git merge` 或 `git rebase`)
+>
+> **`git pull`**：
+>
+> - 从远程仓库获取更新的数据，并自动尝试合并到当前分支。
+> - 包括 `git fetch` 和 `git merge` 两个步骤。
+> - 更方便，但可能在有冲突时需要手动解决合并冲突。
+
 ## 分支
 
 `git branch`	查看所有本地分支， 当前分支前面会有一个星号*， -r查看远程分支， -a查看所有分支
@@ -168,10 +180,12 @@
 
 `git rebase <main>`	合并分支
 
-rebase 操作可以把本地未push的分叉提交历史整理成直线， 看起来更加直观。 但是， 如果多人协作时， 不要对已经推送到远程的分支执行rebase操作。 
+> rebase 操作可以把本地未push的分叉提交历史整理成直线， 看起来更加直观。 但是， 如果多人协作时， 不要对已经推送到远程的分支执行rebase操作。 
+>
+> rebase不会产生新的提交， 而是把当前分支的每一个提交都 “复制”到目标分支上， 然后再把当前分支指向目标分支， 而merge会产生一个新的提交， 这个提交有两个分支的所有修改。
 
-rebase不会产生新的提交， 而是把当前分支的每一个提交都 “复制”到目标分支上， 然后再把当前分支指向目标分支， 而merge会产生一个新的提交， 这个提交有两个分支的所有修改。
 
-**强制推送**
+
+## 强制推送
 
 强制推送到远程仓库 `git push --force origin master` 
