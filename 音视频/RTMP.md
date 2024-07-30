@@ -111,39 +111,76 @@ Chunk格式包含基本头、消息头、扩展时间戳和负载，如下图所
 
 **控制信息的Message Stream ID必须为0（代表控制流信息），CSID必须为2，Message Type ID可以为1/2/3/5/6，控制消息的接受端会忽略掉chunk中的时间戳，收到后立即生效**
 
-- **Set Chunk Size**(Message Type ID=1) ：设置chunk中Data字段所能承载的最大字节数，默认为128bytes，通信过程中可以通过发送该消息来设置chunk Size的大小（不得小于128bytes），该值将作用于后续的所有块的发送，直到收到新的通知，而且通信双方会各自维护一个chunkSize，两端的chunkSize是独立的。其chunk data格式如下：
+- **Set Chunk Size**(Message Type ID=**1**) ：设置chunk中Data字段所能承载的最大字节数，默认为128bytes，通信过程中可以通过发送该消息来设置chunk Size的大小（不得小于128bytes），该值将作用于后续的所有块的发送，直到收到新的通知，而且通信双方会各自维护一个chunkSize，两端的chunkSize是独立的。其chunk data格式如下：
   ![1](./RTMP.assets/53db5d4ec42308d423048300daa33a3a.png)
   其中第一位必须为0，chunk Size占31个位，最大可配置为2147483647＝0x7FFFFFFF，但实际上所有大于16777215=0xFFFFFF的值都用不上，因为chunk size不能大于Message的长度，表示Message的长度字段是用3个字节表示的，最大只能为0xFFFFFF
-- **Abort Message**(Message Type ID=2)：当一个Message被切分为多个chunk，接受端只接收到了部分chunk时，发送该控制消息表示发送端不再传输同Message的chunk，接受端接收到这个消息后要丢弃这些不完整的chunk。
+- **Abort Message**(Message Type ID=**2**)：当一个Message被切分为多个chunk，接受端只接收到了部分chunk时，发送该控制消息表示发送端不再传输同Message的chunk，接受端接收到这个消息后要丢弃这些不完整的chunk。
   ![1](./RTMP.assets/50f9a9d862ebb1278efd94761b30b5ac.png)
   Data数据中只需要一个CSID，表示丢弃该CSID的所有已接收到的chunk。
-- **Acknowledgement**(Message Type ID=3)：当收到对端的消息大小等于窗口大小（Window Size）时接受端要回馈一个ACK给发送端告知对方可以继续发送数据。窗口大小就是指收到接受端返回的ACK前最多可以发送的字节数量，返回的ACK中会带有从发送上一个ACK后接收到的字节数。
+- **Acknowledgement**(Message Type ID=**3**)：当收到对端的消息大小等于窗口大小（Window Size）时接受端要回馈一个ACK给发送端告知对方可以继续发送数据。窗口大小就是指收到接受端返回的ACK前最多可以发送的字节数量，返回的ACK中会带有从发送上一个ACK后接收到的字节数。
   ![1](./RTMP.assets/f5b718852e9cdc789ece16c3c15154d1.png)
-- **Window Acknowledgement Size**(Message Type ID=5)：发送端在接收到接受端返回的两个ACK间最多可以发送的字节数，客户端或服务端发送该消息来通知对方发送确认消息（ACK）所使用的窗口大小，并等待对方发送回确认消息（ACK），对方（接收端）在接收到窗口大小确认信息后必须发送确认消息（ACK）。
+- **Window Acknowledgement Size**(Message Type ID=**5**)：发送端在接收到接受端返回的两个ACK间最多可以发送的字节数，客户端或服务端发送该消息来通知对方发送确认消息（ACK）所使用的窗口大小，并等待对方发送回确认消息（ACK），对方（接收端）在接收到窗口大小确认信息后必须发送确认消息（ACK）。
   ![1](./RTMP.assets/78a4e2773c8d7343bd39ff13b590d628.png)
-- **Set Peer Bandwidth**(Message Type ID=6):限制对端的输出带宽。接受端接收到该消息后会通过设置消息中的Window ACK Size来限制已发送但未接受到反馈的消息的大小来限制发送端的发送带宽。如果消息中的Window ACK Size与上一次发送给发送端的size不同的话要回馈一个Window Acknowledgement Size的控制消息。
+- **Set Peer Bandwidth**(Message Type ID=**6**):限制对端的输出带宽。接受端接收到该消息后会通过设置消息中的Window ACK Size来限制已发送但未接受到反馈的消息的大小来限制发送端的发送带宽。如果消息中的Window ACK Size与上一次发送给发送端的size不同的话要回馈一个Window Acknowledgement Size的控制消息。
   ![1](./RTMP.assets/baef1f330064bd50d9cb3d60f79e93d9.png)
-- Hard(Limit Type＝0):接受端应该将Window Ack Size设置为消息中的值
-- Soft(Limit Type=1):接受端可以讲Window Ack Size设为消息中的值，原有值如果小于此值，也可以保存原来的值，
-- Dynamic(Limit Type=2):如果上次的Set Peer Bandwidth消息中的Limit Type为0，本次也按Hard处理，否则忽略本消息，不去设置Window Ack Size。
+  - Hard(Limit Type＝0):接受端应该将Window Ack Size设置为消息中的值
+  - Soft(Limit Type=1):接受端可以讲Window Ack Size设为消息中的值，原有值如果小于此值，也可以保存原来的值
+  - Dynamic(Limit Type=2):如果上次的Set Peer Bandwidth消息中的Limit Type为0，本次也按Hard处理，否则忽略本消息，不去设置Window Ack Size。
 
+### 不同类型的RTMP Message
 
+主要RTMP消息类型如下，其详细介绍可参照规范，RTMP协议规范《rtmp_specification_1.0》，这里不做详细描述。
 
+- **Command Message**(命令消息，Message Type ID＝17或20)：表示在客户端盒服务器间传递的在对端执行某些操作的命令消息，如connect表示连接对端，对端如果同意连接的话会记录发送端信息并返回连接成功消息，publish表示开始向对方推流，接受端接到命令后准备好接受对端发送的流信息，后面会对比较常见的Command Message具体介绍。当信息使用AMF0编码时，Message Type ID＝20，AMF3编码时Message Type ID＝17.
+- **Data Message**（数据消息，Message Type ID＝15或18）：传递一些元数据（MetaData，比如视频名，分辨率等等）或者用户自定义的一些消息。当信息使用AMF0编码时，Message Type ID＝18，AMF3编码时Message Type ID＝15.
+- **Shared Object Message**(共享消息，Message Type ID＝16或19)：表示一个Flash类型的对象，由键值对的集合组成，用于多客户端，多实例时使用。当信息使用AMF0编码时，Message Type ID＝19，AMF3编码时Message Type ID＝16.
+- **Audio Message**（音频信息，Message Type ID＝8）：音频数据。
+- **Video Message**（视频信息，Message Type ID＝9）：视频数据。
+- **Aggregate Message** (聚集信息，Message Type ID＝22)：多个RTMP子消息的集合
+- **User Control Message Events**(用户控制消息，Message Type ID=4):告知对方执行该信息中包含的用户控制事件，比如Stream Begin事件告知对方流信息开始传输。和前面提到的协议控制信息（Protocol Control Message）不同，这是在RTMP协议层的，而不是在RTMP chunk流协议层的，这个很容易弄混。该信息在chunk流中发送时，Message Stream ID=0,Chunk Stream Id=2,Message Type Id=4。
 
+### RTMP Massage和chunk之间关系
 
+前文已经介绍了RTMP传输的单位不是massage，而是把massage拆分成一个或多个chunk来进行传输，可根据msg stream id判断是否属于同一个Massage，其拆分过程如下：
+![1](./RTMP.assets/f4b5617e12b16ef10dc4c2731ee1e0a7.png)
 
+> 这里采用通用的做法，RTMP Message Header不拆分到chunk data中，虽然规范上RTMP massage应该作为一个整体被拆分成chunk，但是由于RTMP massage header与chunk massage header信息重复，本着最小传输数据原则，一般做法是在chunk data中去掉此信息。
 
+## RTMP流媒体传输详解
 
+### RTMP 推流
 
+RTMP推流流程如下图所示：
+![1](./RTMP.assets/36cd10d6ef86ac318687a7574857c939.png)
 
+- 首先由发布客户端发起握手协议，handshaking done
+- 发布端向服务器发送连接请求消息 Command Message（connect）
+- 服务端接收到连接命令后，发送窗口应答大小确认信息(Window Acknowledgement Size),配置对端带宽(Set Peer Bandwidth), 发送用户控制协议(Stream Begin)告知流开始信息，并发送连接接收响应信息(_result-connect response)
+- 发布端发起创建流通道（createstream）
+- 服务器接收到创建流通到后，响应创建流(_result-creatStream response)
+- 发布端发起发布命令消息（public）并准备开始传输元数据消息（Metadata）、音频数据(AUdio data)
+- 服务端接收到发布命令后，发送响应消息
+- 发送端配置chunk size、开始发送视频数据
+- 服务端返回发布结果信息，开始接收音视频流
 
+> 其上为官方规范文档中描述的流程，实际过程可能稍有不同，发送端和接收端主要对创建流、发布、和数据传输的消息比较关注，解析时一般按照规范顺序和格式解析，其他消息发送顺序并无特殊规定，消息较小时，可一次发送多个RTMP消息。
 
+真实的wireshark抓包数据如下：
+![1](./RTMP.assets/3b640091d30f5ad16e1136ba3189086d.png)
 
+### RTMP 拉流
 
+官方规范中给出的RTMP拉流流程如下图：
+![1](./RTMP.assets/8ec5717f89c5850d226504c3ac04a6c5.png)
 
+- 首先和推流一样，由客户端发起握手协议，发送创建流命令
+- 服务器端接收创建流命令后，发送响应命令
+- 客户端发送命令消息（play）
+- 服务器端接收到播放命令play后，配置chunk大小，发送用户控制协议（StreamIsRecorded、StreamBegin）通知是否录制流，流已开启标志，之后发送播放命令响应消息（刷新当前状态、通知播放开始），这里如果play命令成功，服务端回复onStatus 命令消息 NetStream.Play.Start和NetStream.Play.Reset，其中NetStream.Play.Reset只有当客户端发送的play命令里设置了reset时才会发送，如果要播放的流没有找到，服务端会发送onStatus消息NetStream.Play.StreamNotFound。
+- 服务器端发送音视频消息到客户端，客户端开始播放
 
-
-
+wireshark抓包示例及标注如下：
+![1](./RTMP.assets/78d11e068f92b5157db935666f891acd.png)
 
 
 
