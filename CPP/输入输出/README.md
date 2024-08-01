@@ -55,6 +55,126 @@ int main(){
 }
 ```
 
+### `sscanf`
+
+`sscanf` 函数用于从字符串中读取格式化数据。它与 `scanf` 类似，但输入源是字符串而不是标准输入。
+
+**原型**
+
+```c
+int sscanf(const char *str, const char *format, ...);
+```
+
+**参数**
+
+- `str`：要读取的输入字符串。
+- `format`：格式字符串，指定如何解析输入。
+- `...`：指向变量的指针，用于存储解析后的值。
+
+**返回值**
+
+返回成功赋值的变量数量。如果在解析过程中遇到错误或到达字符串末尾，则返回一个负值。
+
+**示例**
+
+```c
+#include <stdio.h>
+
+int main() {
+    char input[] = "123 456.789 Hello";
+    int i;
+    float f;
+    char str[20];
+
+    sscanf(input, "%d %f %s", &i, &f, str);
+
+    printf("Integer: %d\n", i);
+    printf("Float: %f\n", f);
+    printf("String: %s\n", str);
+
+    return 0;
+}
+```
+
+### `sprintf`
+
+`sprintf` 函数用于将格式化的数据写入字符串。它类似于 `printf`，但输出目标是字符串而不是标准输出。
+
+**原型**
+
+```c
+int sprintf(char *str, const char *format, ...);
+```
+
+**参数**
+
+- `str`：存储结果的目标字符串缓冲区。
+- `format`：格式字符串，指定如何格式化输出。
+- `...`：要格式化的值。
+
+**返回值**
+
+返回写入字符串的字符数（不包括终止符）。
+
+**示例**
+
+```c
+#include <stdio.h>
+
+int main() {
+    char buffer[50];
+    int i = 123;
+    float f = 456.789;
+    char str[] = "Hello";
+
+    sprintf(buffer, "%d %f %s", i, f, str);
+
+    printf("Formatted String: %s\n", buffer);
+
+    return 0;
+}
+```
+
+### `snprintf`
+
+`snprintf` 函数与 `sprintf` 类似，但增加了一个参数以指定输出缓冲区的最大长度，从而提高了安全性，防止缓冲区溢出。
+
+**原型**
+
+```c
+int snprintf(char *str, size_t size, const char *format, ...);
+```
+
+**参数**
+
+- `str`：存储结果的目标字符串缓冲区。
+- `size`：输出缓冲区的最大长度，包括终止符。
+- `format`：格式字符串，指定如何格式化输出。
+- `...`：要格式化的值。
+
+**返回值**
+
+返回写入缓冲区的字符数（不包括终止符）。如果返回值大于或等于 `size`，则表示输出被截断。
+
+**示例**
+
+```c
+#include <stdio.h>
+
+int main() {
+    char buffer[20];
+    int i = 123;
+    float f = 456.789;
+    char str[] = "Hello";
+
+    snprintf(buffer, sizeof(buffer), "%d %f %s", i, f, str);
+
+    printf("Formatted String: %s\n", buffer);
+
+    return 0;
+}
+```
+
 ### * 的应用
 
 ① * 在`printf`中的应用

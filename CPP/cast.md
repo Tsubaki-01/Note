@@ -173,3 +173,79 @@ public:
 
 - **安全性**：只应在确实需要修改数据且原始数据非 `const` 时使用，否则可能导致未定义行为。
 - **代码可读性**：滥用 `const_cast` 可能使代码难以理解和维护，尽量保持类型的 `const` 完整性。
+
+### 5. `dynamic_pointer_cast`
+
+`dynamic_pointer_cast` 是 C++11 引入的一种**智能指针转换**工具，用于在智能指针（`std::shared_ptr`）之间进行动态类型转换。它类似于传统的 C++ 中的 `dynamic_cast`，但适用于智能指针。
+
+**用法**
+
+`dynamic_pointer_cast` 用于将一个 `std::shared_ptr` 类型安全地转换为另一个类型的 `std::shared_ptr`。如果转换成功，返回目标类型的 `std::shared_ptr`；如果转换失败，返回一个空的 `std::shared_ptr`。
+
+**函数原型**
+
+```C++
+std::shared_ptr<Derived> dynamic_pointer_cast(const std::shared_ptr<Base>& sp);
+```
+
+**实例**
+
+```C++
+#include <iostream>
+#include <memory>
+
+class Base {
+public:
+    virtual ~Base() = default;
+};
+
+class Derived : public Base {
+public:
+    void show() {
+        std::cout << "Derived class method" << std::endl;
+    }
+};
+
+class Unrelated {
+public:
+    void show() {
+        std::cout << "Unrelated class method" << std::endl;
+    }
+};
+
+int main() {
+    // 创建一个 Base 类型的 shared_ptr，指向一个 Derived 对象
+    std::shared_ptr<Base> basePtr = std::make_shared<Derived>();
+
+    // 动态转换 basePtr 为 Derived 类型的 shared_ptr
+    std::shared_ptr<Derived> derivedPtr = std::dynamic_pointer_cast<Derived>(basePtr);
+
+    if (derivedPtr) {
+        derivedPtr->show(); // 输出: Derived class method
+    } else {
+        std::cout << "Conversion failed" << std::endl;
+    }
+
+    // 尝试将 basePtr 转换为 Unrelated 类型的 shared_ptr（失败）
+    std::shared_ptr<Unrelated> unrelatedPtr = std::dynamic_pointer_cast<Unrelated>(basePtr);
+
+    if (unrelatedPtr) {
+        unrelatedPtr->show();
+    } else {
+        std::cout << "Conversion failed" << std::endl; // 输出: Conversion failed
+    }
+
+    return 0;
+}
+```
+
+**创建对象**：使用 `std::make_shared` 创建一个 `Derived` 对象，并将其赋值给一个 `Base` 类型的 `std::shared_ptr`。
+
+**动态类型转换**：使用 `std::dynamic_pointer_cast` 将 `basePtr` 转换为 `Derived` 类型的 `std::shared_ptr`。如果转换成功，调用 `Derived` 类的方法；如果转换失败，输出 "Conversion failed"。
+
+**转换失败示例**：尝试将 `basePtr` 转换为 `Unrelated` 类型的 `std::shared_ptr`。由于 `Base` 和 `Unrelated` 没有继承关系，转换失败，输出 "Conversion failed"。
+
+**注意事项**
+
+- `dynamic_pointer_cast` 只适用于 `std::shared_ptr`。对于 `std::unique_ptr`，没有直接对应的动态转换工具，可以使用原始指针和 `dynamic_cast` 进行间接处理。
+- 转换过程中，如果目标类型不匹配，返回一个空的 `std::shared_ptr`。因此，需要检查转换结果是否为空以避免空指针解引用。

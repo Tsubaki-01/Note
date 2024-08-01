@@ -1,0 +1,8 @@
+## strstr
+
+## find
+
+## rfind
+
+## substr
+

@@ -119,3 +119,38 @@ typedef vector<int> V1;
 using V2 = vector<int>;
 ```
 完整代码见：[using_typedef.cpp](using_typedef.cpp)
+
+### 类中的using定义别名
+
+```C++
+#include <iostream>
+#include <memory>
+
+class PlayerBase {
+public:
+    // 定义类型别名
+    using Ptr = std::shared_ptr<PlayerBase>;
+
+    void play() {
+        std::cout << "Playing..." << std::endl;
+    }
+};
+
+int main() {
+    // 使用类型别名创建 PlayerBase 对象的共享指针
+    PlayerBase::Ptr player = std::make_shared<PlayerBase>();
+
+    // 调用成员函数
+    player->play();
+
+    return 0;
+}
+```
+
+这个声明定义了一个类型别名 `Ptr`，它代表 `std::shared_ptr<PlayerBase>`。这意味着 `Ptr` 是一个指向 `PlayerBase` 对象的共享指针。
+
+它们只是编译时的替换，类似于C中的宏替换。类型别名的定义在编译时被替换成实际的类型，之后编译器再处理这些实际的类型。因此，它们的作用范围（scope）仅限于定义它们的作用域。通常，类型别名会被定义在类内部或命名空间内部，使得它们在该作用域内有效。
+
+在类的作用域内使用 `PlayerBase::Ptr` 来表示 `std::shared_ptr<PlayerBase>`
+
+通过使用类型别名，可以使代码更简洁，特别是在处理复杂类型时。将类型别名放在类的内部，可以提高代码的可读性和可维护性，使其更符合面向对象编程的原则。

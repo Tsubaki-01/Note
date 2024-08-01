@@ -230,7 +230,6 @@ CSeq: 5
 Session: 2095163832;timeout=60
 Transport: RTP/AVP/TCP;unicast;interleaved=0-1;ssrc=24e4e500;mode="play"
 Date:  Fri, Aug 26 2022 14:35:46 GMT
-1234567891011
 ```
 
 RTP通过TCP传输时，与UDP方式在SETUP方法上有一定的区别，主要是Transport头，RTP/AVP/TCP表示RTP流通过TCP传输，当此值出现时，其**没有client_port字段，出现interleaved字段**
@@ -273,7 +272,6 @@ CSeq: 6
 Session:       2095163832
 RTP-Info: url=rtsp://10.45.12.141:554/h264/ch1/main/av_stream/trackID=1;seq=29458;rtptime=2518517708
 Date:  Fri, Aug 26 2022 14:35:46 GMT
-123456789101112
 ```
 
 play方法需要带上Session字段表示统一会话，此Session由setup时服务端返回，客户端发送play方法后，即可准备接收码流，服务器接收到play后，即可打开码流发送通道，发送码流；这里要注意服务器在给出play响应时，最好带有RTP-Info字段描述将要发送码流的RTP信息，比如第一包RTP的seq和rtptime，客户端可以根据此字段进行解复用
@@ -296,7 +294,7 @@ Session: 391346974
 ### 其他方法
 
 1. PAUSE方法：录像回放时会用到，用以暂停流媒体传输
-2. SET_PARAMETER/GET_PARAMETER，此方法基本没啥用，一般用来作为心跳使用，也是用option来维持心跳
+2. SET_PARAMETER/GET_PARAMETER，此方法基本没啥用，一般用来作为心跳使用，也可用option来维持心跳
 
 ## RTSP URL 的格式
 
