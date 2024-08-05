@@ -69,6 +69,26 @@ protected:
 类Derived私有继承了Base，对于它来说成员变量n和成员函数size都是私有的，如果使用了using语句，可以改变他们的可访问性，如上述例子中，size可以按public的权限访问，n可以按protected的权限访问。
 完整代码见：[derived_base.cpp](derived_base.cpp)
 
+### 构造函数中的using
+
+在 C++11 中，派生类能够重用其直接基类定义的构造函数。
+
+```c++
+class Derived : Base {
+public:
+    using Base::Base;
+    /* ... */
+};
+```
+
+
+
+如上 using 声明，对于基类的每个构造函数，编译器都生成一个与之对应（形参列表完全相同）的派生类构造函数。生成如下类型构造函数：
+
+```c++
+Derived(parms) : Base(args) { }
+```
+
 ## 函数重载
 
 在继承过程中，派生类可以覆盖重载函数的0个或多个实例，一旦定义了一个重载版本，那么其他的重载版本都会变为不可见。

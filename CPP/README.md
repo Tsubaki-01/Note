@@ -154,7 +154,7 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 
 ## 类
 
-### `enum`
+### [`enum`](./Class/enum.md)
 
 ### [`union`](./Class/union.md)
 
@@ -171,6 +171,8 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 ## C++ 11 / 14
 
 [functional](./Lib/functional/)
+
+[decltype](./C++11&14/decltype.md)
 
 ## C++17
 

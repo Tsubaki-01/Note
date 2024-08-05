@@ -1,3 +1,14 @@
+## enum
+
+#### 不限定作用域的枚举类型
+
+```c
+enum color { red, yellow, green };
+enum { floatPrec = 6, doublePrec = 10 };
+```
+
+## enum class
+
 `enum class` 是 C++11 引入的一种强类型枚举（scoped enumeration），与传统的 `enum` 相比，具有更严格的类型检查和更好的作用域控制。以下是 `enum class` 的一些关键特点和用法示例。
 
 ### 关键特点
