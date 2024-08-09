@@ -1,3 +1,13 @@
+## 处理逻辑
+
+**主动**
+
+`sendOptions`等函数
+
+**被动**
+
+通过设置`_on_response`为`handleResOptions`等函数，在`onWholeRtspPacket`中调用`_on_response`实现。
+
 ## 建立连接
 
 ![image-20240731165840572](./RTSPPlayer.assets/image-20240731165840572.png)

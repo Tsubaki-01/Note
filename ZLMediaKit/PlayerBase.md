@@ -7,6 +7,12 @@ static std::shared_ptr<PlayerBase>
 
 ![image-20240801184254234](./PlayerBase.assets/image-20240801184254234.png)
 
+这边是智能指针的复制构造初始化，同时指定了智能指针的删除器为`release_func`。
+
+构造出一个指向`RtspPlayerImp`的`PlayerBase`的`shared_ptr`
+
+同时，传入`poller`参数，初始化`RtspPlayerImp`类
+
 ## PlayerImp
 
 ```C++

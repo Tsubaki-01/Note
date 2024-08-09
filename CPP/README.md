@@ -122,27 +122,35 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 
 ## 内存
 
-### [内存对齐](./memory/memory alignment.md)
+### [内存对齐](./memory/memory_alignment.md)
 
 
 
-## 指针
+## 引用和指针
 
-### 函数指针
+[引用](./ptr&ref/ref)
 
-### 引用和指针
+函数指针
 
-### 智能指针
+引用和指针
+
+智能指针
 
 ## 虚函数
 
+[虚函数和关键字](./virtual/virtual&gjz.md)
 
+[虚函数和构造函数与析构函数](./virtual/virtual&ctor&dtor.md)
 
+[纯虚函数](./virtual/pureVirtual.md)
 
+[虚函数表](./virtual/virtual_table.md)
+
+[虚继承](./virtual/virtual_inheritance.md)
 
 ## 库函数
 
-<!-- TOC depthfrom:2 depthto:2 -->
+
 
 ### 输入输出
 
@@ -154,7 +162,7 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 
 ## 类
 
-### `enum`
+### [`enum`](./Class/enum.md)
 
 ### [`union`](./Class/union.md)
 
@@ -164,6 +172,10 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 
 ### [`struct`和`class`](./Class/struct&class.md)
 
+## 文件操作
+
+[输入输出](./file/io.md)
+
 ## STL
 
 [string](./String/)
@@ -171,6 +183,12 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 ## C++ 11 / 14
 
 [functional](./Lib/functional/)
+
+[decltype](./C++11&14/decltype.md)
+
+智能指针
+
+[成员初始化列表](./C++11&14/initializer_list.md)
 
 ## C++17
 
