@@ -4,13 +4,13 @@
 
 文件
 
-![QQ_1723002381354](./新建 README.assets/QQ_1723002381354.png)
+![QQ_1723002381354](./FFmpeg.assets/QQ_1723002381354.png)
 
 ## FFmpeg
 
 https://zhuanlan.zhihu.com/p/697547841
 
-![QQ_1723015252282](./新建 README.assets/QQ_1723015252282.png)
+![QQ_1723015252282](./FFmpeg.assets/QQ_1723015252282.png)
 
 ## 遇到的错误
 
@@ -44,7 +44,7 @@ if (0 >= (ret = sws_scale(_ctx, frame->get()->data, frame->get()->linesize, 0, f
       }
 ```
 
-![QQ_1723020384329](./新建 README.assets/QQ_1723020384329.png)
+![QQ_1723020384329](./FFmpeg.assets/QQ_1723020384329.png)
 
 ```c++
 Thread 8 "decoder thread" received signal SIGSEGV, Segmentation fault.
@@ -184,9 +184,9 @@ $2 = {2560, 0, 0, 0, 0, 0, 0, 0}
 
 定位到是sws_scale错误
 
-![QQ_1723023397946](./新建 README.assets/QQ_1723023397946.png)
+![QQ_1723023397946](./FFmpeg.assets/QQ_1723023397946.png)
 
-![QQ_1723025051933](./新建 README.assets/QQ_1723025051933.png)
+![QQ_1723025051933](./FFmpeg.assets/QQ_1723025051933.png)
 
 #### 解决问题
 
@@ -677,11 +677,11 @@ int main() {
 
 输出bmp图片正常
 
-![QQ_1723085261677](./新建 README.assets/QQ_1723085261677.png)
+![QQ_1723085261677](./FFmpeg.assets/QQ_1723085261677.png)
 
 sws_frame的linesize是视频宽度1280的三倍（符合官方说明）
 
-![QQ_1723085442761](./新建 README.assets/QQ_1723085442761.png)
+![QQ_1723085442761](./FFmpeg.assets/QQ_1723085442761.png)
 
 
 

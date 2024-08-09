@@ -184,8 +184,26 @@
 >
 > rebase不会产生新的提交， 而是把当前分支的每一个提交都 “复制”到目标分支上， 然后再把当前分支指向目标分支， 而merge会产生一个新的提交， 这个提交有两个分支的所有修改。
 
+## 修改已经提交的commit
+
+`git commit --amend` 改写单次commit
+
+`git rebase -i <commit range>` 删改排以及合并多个commit
+
+`git checkout <commit> -- <filename>` 获取历史版本的某个文件
+
+`git reset [--hard] <commit>` 移动HEAD指针
+
+`git revert <commit>` 创建一个回退提交
+
+
+
+
+
+
 
 
 ## 强制推送
 
 强制推送到远程仓库 `git push --force origin master` 
+`git push -force(-f) <remote> <branch>` 强制push，覆盖原有远程仓库
