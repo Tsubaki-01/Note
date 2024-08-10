@@ -44,3 +44,15 @@ size_t aligned_size = (raw_size) & ~(align - 1);              -->向下对齐
 
 - 同时，内存对齐一般需要向上或向下对齐，向上对齐时需要加上`(align - 1)`，类似于四舍五入
 
+#### C++ 17中的函数
+
+```c++
+// 请求分配16字节对齐，大小为1024字节的内存块
+    size_t alignment = 16;
+    size_t size = 1024;
+    void* ptr = std::aligned_alloc(alignment, size);
+......
+    std::free(ptr);
+```
+
+`alignment`必须是2的幂，且是`size`的倍数。
