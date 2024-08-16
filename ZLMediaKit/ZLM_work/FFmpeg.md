@@ -44,7 +44,7 @@ if (0 >= (ret = sws_scale(_ctx, frame->get()->data, frame->get()->linesize, 0, f
       }
 ```
 
-![QQ_1723020384329](./FFmpeg.assets/QQ_1723020384329.png)
+#### GDB
 
 ```c++
 Thread 8 "decoder thread" received signal SIGSEGV, Segmentation fault.
@@ -57,56 +57,14 @@ warning: 1610   ./malloc/malloc.c: 没有那个文件或目录
 #1  0x00007ffff68ac1c5 in _int_malloc (av=av@entry=0x7fffc0000030, bytes=bytes@entry=102368) at ./malloc/malloc.c:4381
 #2  0x00007ffff68ad206 in _int_memalign
     (av=av@entry=0x7fffc0000030, alignment=alignment@entry=64, bytes=bytes@entry=102256) at ./malloc/malloc.c:5069
-#3  0x00007ffff68ada22 in _mid_memalign (alignment=alignment@entry=64, bytes=bytes@entry=102256, address=<optimized out>)
-    at ./malloc/malloc.c:3648
-#4  0x00007ffff68af46c in __posix_memalign (size=102256, alignment=64, memptr=0x7fffe3df67b0) at ./malloc/malloc.c:5798
-#5  __posix_memalign (memptr=memptr@entry=0x7fffe3df67b0, alignment=alignment@entry=64, size=102256)
-    at ./malloc/malloc.c:5782
-#6  0x00007ffff505fc15 in av_malloc (size=size@entry=102256) at src/libavutil/mem.c:105
-#7  0x00007ffff502a4ca in av_buffer_alloc (size=size@entry=102256) at src/libavutil/buffer.c:82
-#8  0x00007ffff502a552 in av_buffer_allocz (size=102256) at src/libavutil/buffer.c:95
-#9  0x00007ffff502ae2e in pool_alloc_buffer (pool=0x7fffc000d680) at src/libavutil/buffer.c:363
-#10 av_buffer_pool_get (pool=0x7fffc000d680) at src/libavutil/buffer.c:401
-#11 0x00007ffff3dcb6c7 in alloc_picture (pic=0x7fffede32ed0, h=0x7fffedd87040) at src/libavcodec/h264_slice.c:248
-#12 h264_frame_start (h=h@entry=0x7fffedd87040) at src/libavcodec/h264_slice.c:528
-#13 0x00007ffff3dcee01 in h264_field_start
-    (first_slice=<optimized out>, nal=0x7fffedd87040, sl=0x7fffd8008880, h=0x7fffc0001480)
-    at src/libavcodec/h264_slice.c:1505
-#14 ff_h264_queue_decode_slice (h=h@entry=0x7fffedd87040, nal=nal@entry=0x7fffc00012e0)
-    at src/libavcodec/h264_slice.c:2132
---Type <RET> for more, q to quit, c to continue without paging--c
-#15 0x00007ffff3dd41f7 in decode_nal_units (buf_size=386, buf=0x7fffc0005e70 "", h=0x7fffedd87040)
-    at src/libavcodec/h264dec.c:651
-#16 h264_decode_frame (avctx=<optimized out>, pict=0x7fffd8003f80, got_frame=0x7fffe3dff54c, avpkt=<optimized out>)
-    at src/libavcodec/h264dec.c:1047
-#17 0x00007ffff3ca8525 in decode_simple_internal
-    (discarded_samples=0x7fffe3dff550, frame=<optimized out>, avctx=0x7fffd80084c0) at src/libavcodec/decode.c:430
-#18 decode_simple_receive_frame (frame=0x7fffd8003f80, avctx=0x7fffd80084c0) at src/libavcodec/decode.c:609
+...
 #19 decode_receive_frame_internal (avctx=avctx@entry=0x7fffd80084c0, frame=0x7fffd8003f80) at src/libavcodec/decode.c:637
 #20 0x00007ffff3ca8b24 in avcodec_send_packet (avctx=0x7fffd80084c0, avpkt=0x7fffc0001180) at src/libavcodec/decode.c:734
 #21 0x00007ffff77fa870 in mediakit::FFmpegDecoder::decodeFrame
     (this=0x7fffd8004810, data=0x7fffd8027b30 "", size=386, dts=1723021519921, pts=1723021520046, live=false, key_frame=false) at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:624
 #22 0x00007ffff77fa325 in mediakit::FFmpegDecoder::inputFrame_l
     (this=0x7fffd8004810, frame=std::shared_ptr<mediakit::Frame> (use count 1, weak count 0) = {...}, live=false, enable_merge=true) at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:551
-#23 0x00007ffff77fa3bf in operator() (__closure=0x7fffd8006940) at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:566
-#24 0x00007ffff77fefe4 in std::__invoke_impl<void, mediakit::FFmpegDecoder::inputFrame(const mediakit::Frame::Ptr&, bool, bool, bool)::<lambda()>&>(std::__invoke_other, struct {...} &) (__f=...) at /usr/include/c++/13/bits/invoke.h:61
-#25 0x00007ffff77fe522 in std::__invoke_r<void, mediakit::FFmpegDecoder::inputFrame(const mediakit::Frame::Ptr&, bool, bool, bool)::<lambda()>&>(struct {...} &) (__fn=...) at /usr/include/c++/13/bits/invoke.h:150
-#26 0x00007ffff77fdcdf in std::_Function_handler<void(), mediakit::FFmpegDecoder::inputFrame(const mediakit::Frame::Ptr&, bool, bool, bool)::<lambda()> >::_M_invoke(const std::_Any_data &) (__functor=...)
-    at /usr/include/c++/13/bits/std_function.h:290
-#27 0x00007ffff76c8168 in std::function<void ()>::operator()() const (this=0x7fffe3dff8a0)
-    at /usr/include/c++/13/bits/std_function.h:591
-#28 0x00007ffff77f808b in mediakit::TaskManager::onThreadRun (this=0x7fffd8004810, name="decoder thread")
-    at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:207
-#29 0x00007ffff77f7a74 in operator() (__closure=0x7fffd8003938) at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:156
-#30 0x00007ffff7801cb4 in std::__invoke_impl<void, mediakit::TaskManager::startThread(const std::string&)::<lambda()> >(std::__invoke_other, struct {...} &&) (__f=...) at /usr/include/c++/13/bits/invoke.h:61
-#31 0x00007ffff7801c77 in std::__invoke<mediakit::TaskManager::startThread(const std::string&)::<lambda()> >(struct {...} &&) (__fn=...) at /usr/include/c++/13/bits/invoke.h:96
-#32 0x00007ffff7801c24 in std::thread::_Invoker<std::tuple<mediakit::TaskManager::startThread(const std::string&)::<lambda()> > >::_M_invoke<0>(std::_Index_tuple<0>) (this=0x7fffd8003938) at /usr/include/c++/13/bits/std_thread.h:292
-#33 0x00007ffff7801ba4 in std::thread::_Invoker<std::tuple<mediakit::TaskManager::startThread(const std::string&)::<lambda()> > >::operator()(void) (this=0x7fffd8003938) at /usr/include/c++/13/bits/std_thread.h:299
-#34 0x00007ffff78019fc in std::thread::_State_impl<std::thread::_Invoker<std::tuple<mediakit::TaskManager::startThread(const std::string&)::<lambda()> > > >::_M_run(void) (this=0x7fffd8003930) at /usr/include/c++/13/bits/std_thread.h:244
-#35 0x00007ffff36eabb4 in std::execute_native_thread_routine (__p=0x7fffd8003930)
-    at ../../../../../src/libstdc++-v3/src/c++11/thread.cc:104
-#36 0x00007ffff689ca94 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
-#37 0x00007ffff6929c3c in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
 ```
 
 ```c++
@@ -142,55 +100,42 @@ $1 = {896, 448, 448, 0, 0, 0, 0, 0}
 $2 = {2560, 0, 0, 0, 0, 0, 0, 0}
 ```
 
-```c++
-#0  __pthread_kill_implementation (no_tid=0, signo=6, threadid=<optimized out>) at ./nptl/pthread_kill.c:44
-#1  __pthread_kill_internal (signo=6, threadid=<optimized out>) at ./nptl/pthread_kill.c:78
-#2  __GI___pthread_kill (threadid=<optimized out>, signo=signo@entry=6) at ./nptl/pthread_kill.c:89
-#3  0x00007ffff684526e in __GI_raise (sig=sig@entry=6) at ../sysdeps/posix/raise.c:26
-#4  0x00007ffff68288ff in __GI_abort () at ./stdlib/abort.c:79
-#5  0x00007ffff68297b6 in __libc_message_impl (fmt=fmt@entry=0x7ffff69ce8d7 "%s\n") at ../sysdeps/posix/libc_fatal.c:132
-#6  0x00007ffff68a8fe5 in malloc_printerr (str=str@entry=0x7ffff69d1ae0 "double free or corruption (!prev)")
-    at ./malloc/malloc.c:5772
-#7  0x00007ffff68ab11c in _int_free_merge_chunk (av=0x7fffc0000030, p=0x7fffc02bfb30, size=1221136)
-    at ./malloc/malloc.c:4679
-#8  0x00007ffff68ab42a in _int_free (av=0x7fffc0000030, p=<optimized out>, have_lock=<optimized out>)
-    at ./malloc/malloc.c:4646
-#9  0x00007ffff68add9e in __GI___libc_free (mem=0x7fffc02bfb40) at ./malloc/malloc.c:3398
-#10 0x00005555555555b5 in on_frame_decode (user_data=0x7fffffffdcc0, frame=0x7fffe3dff630)
-    at /home/wq/Tsubaki/ZLMediaKit/api/tests/player_opencv.c:45
-#11 0x00007ffff7758c6f in operator()
-    (__closure=0x7fffd0008280, pix_frame=std::shared_ptr<mediakit::FFmpegFrame> (use count 1, weak count 0) = {...})
---Type <RET> for more, q to quit, c to continue without paging--c
-    at /home/wq/Tsubaki/ZLMediaKit/api/source/mk_transcode.cpp:67
-#12 0x00007ffff7759f7b in std::__invoke_impl<void, mk_decoder_set_cb2(mk_decoder, on_mk_decode, void*, on_user_data_free)::<lambda(const mediakit::FFmpegFrame::Ptr&)>&, const std::shared_ptr<mediakit::FFmpegFrame>&>(std::__invoke_other, struct {...} &) (__f=...) at /usr/include/c++/13/bits/invoke.h:61
-#13 0x00007ffff7759d3d in std::__invoke_r<void, mk_decoder_set_cb2(mk_decoder, on_mk_decode, void*, on_user_data_free)::<lambda(const mediakit::FFmpegFrame::Ptr&)>&, const std::shared_ptr<mediakit::FFmpegFrame>&>(struct {...} &) (__fn=...)
-    at /usr/include/c++/13/bits/invoke.h:150
-#14 0x00007ffff7759a23 in std::_Function_handler<void(const std::shared_ptr<mediakit::FFmpegFrame>&), mk_decoder_set_cb2(mk_decoder, on_mk_decode, void*, on_user_data_free)::<lambda(const mediakit::FFmpegFrame::Ptr&)> >::_M_invoke(const std::_Any_data &, const std::shared_ptr<mediakit::FFmpegFrame> &)
-    (__functor=..., __args#0=std::shared_ptr<mediakit::FFmpegFrame> (use count 1, weak count 0) = {...})
-    at /usr/include/c++/13/bits/std_function.h:290
-#15 0x00007ffff7803151 in std::function<void (std::shared_ptr<mediakit::FFmpegFrame> const&)>::operator()(std::shared_ptr<mediakit::FFmpegFrame> const&) const
-    (this=0x7fffd0009ec0, __args#0=std::shared_ptr<mediakit::FFmpegFrame> (use count 1, weak count 0) = {...})
-    at /usr/include/c++/13/bits/std_function.h:591
-#16 0x00007ffff77fb312 in mediakit::FFmpegDecoder::onDecode
-    (this=0x7fffd0009db0, frame=std::shared_ptr<mediakit::FFmpegFrame> (use count 1, weak count 0) = {...})
-    at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:662
-#17 0x00007ffff77fb124 in mediakit::FFmpegDecoder::decodeFrame
-    (this=0x7fffd0009db0, data=0x7fffd0023450 "", size=1684, dts=1723022467555, pts=1723022467576, live=false, key_frame=false) at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:651
-#18 0x00007ffff77fa82f in mediakit::FFmpegDecoder::inputFrame_l
-    (this=0x7fffd0009db0, frame=std::shared_ptr<mediakit::Frame> (use count 1, weak count 0) = {...}, live=false, enable_merge=true) at /home/wq/Tsubaki/ZLMediaKit/src/Codec/Transcode.cpp:551
-```
 
-有时候行，大部分时候不行
+
+#### 问题定位
+
+有时候不报错，大部分时候报错
+
+![QQ_1723023397946](./FFmpeg.assets/QQ_1723023397946.png)
 
 定位到是sws_scale错误
 
-![QQ_1723023397946](./FFmpeg.assets/QQ_1723023397946.png)
+![QQ_1723020384329](./FFmpeg.assets/QQ_1723020384329.png)
+
+```c++
+if (!out->get()->data[0]) {
+        WarnL << "FFmpegSws::inputFrame·3";
+        if (data) {
+          WarnL << "FFmpegSws::inputFrame·4";
+          av_image_fill_arrays(out->get()->data, out->get()->linesize, data, _target_format, target_width, target_height, 32);
+          // av_image_alloc(out->get()->data, out->get()->linesize, target_width, target_height, (AVPixelFormat)_target_format, 32);
+          WarnL << "FFmpegSws::inputFrame·5 " << "  " << target_width << "  " << target_height;
+        }
+        else {
+          WarnL << "FFmpegSws::inputFrame·6";
+          out->fillPicture(_target_format, target_width, target_height);
+          WarnL << "FFmpegSws::inputFrame·7";
+        }
+      }
+```
 
 ![QQ_1723025051933](./FFmpeg.assets/QQ_1723025051933.png)
 
 #### 解决问题
 
 ##### 单独程序调试
+
+![QQ_1723174459631](./FFmpeg.assets/QQ_1723174459631.png)
 
 ```c++
 #include <iostream>

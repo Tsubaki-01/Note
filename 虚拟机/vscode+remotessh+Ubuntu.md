@@ -45,7 +45,7 @@ sudo service ssh start
 **查看SSH服务状态**
 
 ```shell
-systemctl service ssh start
+systemctl status ssh 
 ```
 
 **关闭虚拟机防火墙**
