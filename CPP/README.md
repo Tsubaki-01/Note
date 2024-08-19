@@ -188,7 +188,9 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 
 ## STL
 
-[string](./String/)
+[string](./STL/String/)
+
+[priority_queue](./STL/priority_queue.md)
 
 ## C++ 11 / 14
 
