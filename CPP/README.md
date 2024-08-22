@@ -18,6 +18,10 @@
 
 [静态绑定和动态绑定](.\语言概念辩经\README.md)
 
+### 生命周期
+
+[生命周期](./memory/lifetime.md)
+
 ## 宏
 
 [宏](./关键字/macro)
@@ -201,6 +205,8 @@ Volatile关键词的第二个特性：“不可优化”特性。volatile告诉�
 [智能指针](./C++11&14/智能指针.md)
 
 [成员初始化列表](./C++11&14/initializer_list.md)
+
+[基于范围的for循环](./C++11&14/rangebased_for.md)
 
 ## C++17
 
