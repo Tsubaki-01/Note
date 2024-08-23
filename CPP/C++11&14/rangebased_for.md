@@ -50,10 +50,7 @@ for (auto& str: getRank().top3()) {
 
 ```cpp
 auto&& r = getRank().top3();
-for (
-  auto i = r.begin(), e = r.end(); 
-  i != e; ++i
-) 
+for (auto i = r.begin(), e = r.end(); i != e; ++i) 
 {
   auto& str = *i;
   cout << str << '\n';
