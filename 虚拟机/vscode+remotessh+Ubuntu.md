@@ -85,4 +85,12 @@ systemctl disable firewalld.service
 
 ![QQ_1721269362342](./vscode+remotessh+Ubuntu.assets/QQ_1721269362342.png)
 
+修改`/etc/ssh/sshd_config`配置文件，修改以下内容
+
+```shell
+RSAAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile      .ssh/authorized_keys
+```
+
 完成
