@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlashAttention v1–v3 深度解析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Noto+Serif+SC:wght@300;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-chtml.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0b0f;
+    --bg2: #111318;
+    --bg3: #181b23;
+    --surface: #1e2130;
+    --surface2: #252840;
+    --border: #2e3350;
+    --border2: #3d4268;
+    --text: #e4e8f5;
+    --text2: #9ba3c4;
+    --text3: #6b7499;
+    --accent: #7c6af7;
+    --accent2: #a78bfa;
+    --accent3: #c4b5fd;
+    --gold: #f59e0b;
+    --gold2: #fcd34d;
+    --teal: #2dd4bf;
+    --teal2: #5eead4;
+    --rose: #fb7185;
+    --rose2: #fda4af;
+    --green: #4ade80;
+    --v1: #f59e0b;
+    --v2: #7c6af7;
+    --v3: #2dd4bf;
+    --glow: 0 0 40px rgba(124, 106, 247, 0.15);
+    --glow-teal: 0 0 40px rgba(45, 212, 191, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif SC', Georgia, serif;
+    font-size: 16px;
+    line-height: 1.8;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,106,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,106,247,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 80px 24px;
+    overflow: hidden;
+  }
+
+  .hero-glow {
+    position: absolute;
+    width: 700px;
+    height: 700px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .hero-glow2 {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(45,212,191,0.08) 0%, transparent 70%);
+    top: 30%;
+    left: 20%;
+    pointer-events: none;
+    animation: drift 8s ease-in-out infinite;
+  }
+
+  @keyframes drift {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(30px, -20px); }
+  }
+
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    background: rgba(124,106,247,0.1);
+    border: 1px solid rgba(124,106,247,0.3);
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 32px;
+    display: inline-block;
+    position: relative;
+  }
+
+  h1.hero-title {
+    font-family: 'Noto Serif SC', serif;
+    font-size: clamp(36px, 7vw, 80px);
+    font-weight: 700;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+    position: relative;
+    margin-bottom: 8px;
+  }
+
+  .title-flash {
+    background: linear-gradient(135deg, #f59e0b 0%, #7c6af7 40%, #2dd4bf 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: clamp(14px, 2vw, 18px);
+    color: var(--text2);
+    max-width: 560px;
+    margin: 20px auto 48px;
+    line-height: 1.7;
+  }
+
+  .version-badges {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .v-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1px solid;
+    backdrop-filter: blur(8px);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .v-badge:hover { transform: translateY(-3px); }
+
+  .v-badge.v1 {
+    background: rgba(245,158,11,0.08);
+    border-color: rgba(245,158,11,0.35);
+    color: var(--gold2);
+    box-shadow: 0 0 20px rgba(245,158,11,0.1);
+  }
+  .v-badge.v2 {
+    background: rgba(124,106,247,0.08);
+    border-color: rgba(124,106,247,0.35);
+    color: var(--accent3);
+    box-shadow: 0 0 20px rgba(124,106,247,0.1);
+  }
+  .v-badge.v3 {
+    background: rgba(45,212,191,0.08);
+    border-color: rgba(45,212,191,0.35);
+    color: var(--teal2);
+    box-shadow: 0 0 20px rgba(45,212,191,0.1);
+  }
+
+  .v-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .v1 .v-dot { background: var(--gold); }
+  .v2 .v-dot { background: var(--accent); }
+  .v3 .v-dot { background: var(--teal); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* ── TOC ── */
+  .toc-section {
+    max-width: 900px;
+    margin: 0 auto 80px;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .toc-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .toc-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--v1), var(--v2), var(--v3));
+  }
+
+  .toc-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 20px;
+  }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 8px;
+  }
+
+  .toc-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text2);
+    font-size: 14px;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+
+  .toc-item:hover {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+  }
+
+  .toc-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    min-width: 20px;
+  }
+
+  /* ── Main layout ── */
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Section headers ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 40px;
+    padding-top: 80px;
+  }
+
+  .section-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text3);
+    min-width: 32px;
+  }
+
+  .section-title {
+    font-size: clamp(22px, 4vw, 32px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border2), transparent);
+  }
+
+  /* Version colored section accent */
+  .sec-v1 .section-num { color: var(--gold); }
+  .sec-v2 .section-num { color: var(--accent2); }
+  .sec-v3 .section-num { color: var(--teal); }
+
+  /* ── Subsection ── */
+  h3 {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    margin: 40px 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h3::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 18px;
+    background: var(--accent2);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .sec-v1 h3::before { background: var(--gold); }
+  .sec-v2 h3::before { background: var(--accent2); }
+  .sec-v3 h3::before { background: var(--teal); }
+
+  h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent3);
+    margin: 28px 0 12px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+
+  p {
+    color: var(--text2);
+    margin-bottom: 16px;
+    line-height: 1.85;
+  }
+
+  /* ── Info card ── */
+  .info-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 24px 0;
+    position: relative;
+  }
+
+  .paper-card {
+    background: linear-gradient(135deg, rgba(30,33,48,0.8), rgba(24,27,35,0.9));
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin: 24px 0;
+  }
+
+  .paper-meta {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 16px;
+    font-size: 13px;
+  }
+
+  .meta-label {
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--text3);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-top: 2px;
+  }
+
+  .meta-val { color: var(--text); }
+
+  /* ── Formula boxes ── */
+  .formula-block {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 20px 24px;
+    margin: 20px 0;
+    overflow-x: auto;
+    font-size: 15px;
+  }
+
+  .sec-v1 .formula-block { border-left-color: var(--gold); }
+  .sec-v2 .formula-block { border-left-color: var(--accent); }
+  .sec-v3 .formula-block { border-left-color: var(--teal); }
+
+  /* ── Code blocks ── */
+  pre {
+    background: #0d0f16;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    overflow-x: auto;
+    margin: 20px 0;
+    position: relative;
+  }
+
+  pre::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+  }
+
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: #a8b4d8;
+    line-height: 1.7;
+  }
+
+  p code, li code {
+    background: rgba(124,106,247,0.12);
+    border: 1px solid rgba(124,106,247,0.2);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--accent3);
+  }
+
+  /* ── Tables ── */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 24px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  thead tr {
+    background: var(--surface);
+  }
+
+  thead th {
+    padding: 14px 18px;
+    text-align: left;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text2);
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border2);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid rgba(46,51,80,0.5);
+    transition: background 0.15s;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(124,106,247,0.04); }
+
+  td {
+    padding: 13px 18px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+
+  td:first-child {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  /* Comparison table special styles */
+  .cmp-table td:nth-child(2) { color: var(--gold2); }
+  .cmp-table td:nth-child(3) { color: var(--accent3); }
+  .cmp-table td:nth-child(4) { color: var(--teal2); }
+
+  /* ── Timeline / pipeline viz ── */
+  .pipeline-viz {
+    background: #0d0f16;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px;
+    margin: 24px 0;
+    overflow-x: auto;
+  }
+
+  .pipeline-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 12px;
+  }
+
+  .pipeline-row:last-child { margin-bottom: 0; }
+
+  .pipeline-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    min-width: 100px;
+  }
+
+  .p-block {
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .p-load { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: var(--gold2); }
+  .p-compute { background: rgba(124,106,247,0.15); border: 1px solid rgba(124,106,247,0.3); color: var(--accent3); }
+  .p-gap { width: 60px; }
+
+  /* ── Callout boxes ── */
+  .callout {
+    display: flex;
+    gap: 16px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+
+  .callout-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .callout-body {
+    font-size: 14px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+
+  .callout-body strong { color: var(--text); font-weight: 600; }
+
+  .callout.tip { border-left: 3px solid var(--teal); }
+  .callout.warn { border-left: 3px solid var(--gold); }
+  .callout.info { border-left: 3px solid var(--accent); }
+
+  /* ── Memory hierarchy diagram ── */
+  .mem-diagram {
+    margin: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mem-layer {
+    display: grid;
+    grid-template-columns: 150px 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 20px;
+    border-radius: 8px;
+    border: 1px solid;
+    transition: transform 0.2s;
+  }
+
+  .mem-layer:hover { transform: translateX(4px); }
+
+  .mem-layer.registers { background: rgba(251,113,133,0.06); border-color: rgba(251,113,133,0.2); }
+  .mem-layer.sram { background: rgba(45,212,191,0.06); border-color: rgba(45,212,191,0.2); }
+  .mem-layer.l2 { background: rgba(124,106,247,0.06); border-color: rgba(124,106,247,0.2); }
+  .mem-layer.hbm { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); }
+
+  .mem-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .mem-bar-wrap {
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+    height: 20px;
+    overflow: hidden;
+  }
+
+  .mem-bar {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(0,0,0,0.7);
+    transition: width 1s ease;
+  }
+
+  .mem-layer.registers .mem-bar { background: var(--rose); width: 8%; }
+  .mem-layer.sram .mem-bar { background: var(--teal); width: 18%; }
+  .mem-layer.l2 .mem-bar { background: var(--accent2); width: 35%; }
+  .mem-layer.hbm .mem-bar { background: var(--gold); width: 100%; }
+
+  .mem-bw {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .registers .mem-bw { color: var(--rose2); }
+  .sram .mem-bw { color: var(--teal2); }
+  .l2 .mem-bw { color: var(--accent3); }
+  .hbm .mem-bw { color: var(--gold2); }
+
+  /* ── Improvement cards ── */
+  .improvement-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  .improvement-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .improvement-card:hover {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+
+  .imp-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    margin-bottom: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  .imp-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+
+  .imp-desc {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+  }
+
+  /* ── Warp comparison ── */
+  .warp-compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  @media (max-width: 600px) {
+    .warp-compare { grid-template-columns: 1fr; }
+  }
+
+  .warp-card {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+  }
+
+  .warp-card.old { border-top: 2px solid var(--rose); }
+  .warp-card.new { border-top: 2px solid var(--green); }
+
+  .warp-ver {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+  }
+
+  .warp-card.old .warp-ver { color: var(--rose2); }
+  .warp-card.new .warp-ver { color: var(--green); }
+
+  /* ── Feature table Hopper ── */
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  @media (max-width: 700px) {
+    .feature-grid { grid-template-columns: 1fr; }
+  }
+
+  .feature-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+  }
+
+  .feature-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+  }
+
+  .feature-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--teal2);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .feature-desc {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+  }
+
+  /* ── Perf metrics ── */
+  .perf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  .perf-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .perf-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+  }
+
+  .perf-card.c1::after { background: var(--gold); }
+  .perf-card.c2::after { background: var(--accent); }
+  .perf-card.c3::after { background: var(--teal); }
+  .perf-card.c4::after { background: var(--rose); }
+
+  .perf-val {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  .perf-card.c1 .perf-val { color: var(--gold2); }
+  .perf-card.c2 .perf-val { color: var(--accent3); }
+  .perf-card.c3 .perf-val { color: var(--teal2); }
+  .perf-card.c4 .perf-val { color: var(--rose2); }
+
+  .perf-label { font-size: 12px; color: var(--text3); }
+
+  /* ── Comparison section ── */
+  .compare-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 40px;
+    margin: 40px 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .compare-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(245,158,11,0.03), rgba(124,106,247,0.03), rgba(45,212,191,0.03));
+    pointer-events: none;
+  }
+
+  /* ── Math section ── */
+  .math-block {
+    background: linear-gradient(135deg, rgba(14,16,24,0.95), rgba(18,21,32,0.95));
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 32px;
+    margin: 24px 0;
+  }
+
+  .derivation-step {
+    display: flex;
+    gap: 16px;
+    margin: 20px 0;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    min-width: 28px;
+    height: 28px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent2);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── Application grid ── */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .app-item {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text2);
+    transition: all 0.2s;
+  }
+
+  .app-item:hover {
+    border-color: var(--teal);
+    background: rgba(45,212,191,0.04);
+    color: var(--text);
+  }
+
+  .app-icon { font-size: 20px; flex-shrink: 0; }
+
+  /* ── Footer ── */
+  footer {
+    margin-top: 100px;
+    border-top: 1px solid var(--border);
+    padding: 60px 24px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .ref-list {
+    max-width: 700px;
+    margin: 32px auto 0;
+    text-align: left;
+    list-style: none;
+  }
+
+  .ref-list li {
+    padding: 12px 16px;
+    border-left: 2px solid var(--border2);
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.6;
+    transition: border-color 0.2s;
+  }
+
+  .ref-list li:hover { border-left-color: var(--accent); }
+
+  .ref-list a {
+    color: var(--accent3);
+    text-decoration: none;
+  }
+
+  .ref-list a:hover { text-decoration: underline; }
+
+  /* ── Misc ── */
+  .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 2px;
+  }
+
+  .tag-gold { background: rgba(245,158,11,0.12); color: var(--gold2); border: 1px solid rgba(245,158,11,0.25); }
+  .tag-purple { background: rgba(124,106,247,0.12); color: var(--accent3); border: 1px solid rgba(124,106,247,0.25); }
+  .tag-teal { background: rgba(45,212,191,0.12); color: var(--teal2); border: 1px solid rgba(45,212,191,0.25); }
+  .tag-rose { background: rgba(251,113,133,0.12); color: var(--rose2); border: 1px solid rgba(251,113,133,0.25); }
+
+  ul, ol {
+    padding-left: 24px;
+    margin: 12px 0;
+  }
+
+  li {
+    color: var(--text2);
+    margin: 6px 0;
+    line-height: 1.7;
+  }
+
+  strong { color: var(--text); font-weight: 600; }
+
+  .separator {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border2), transparent);
+    margin: 60px 0;
+  }
+
+  /* ── Scroll animation ── */
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── MathJax overrides ── */
+  .MathJax { color: var(--text) !important; }
+</style>
+</head>
+<body>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+
+  <div class="eyebrow">深度技术解析 · Deep Dive</div>
+
+  <h1 class="hero-title">
+    <span class="title-flash">FlashAttention</span>
+    <br>v1 · v2 · v3
+  </h1>
+
+  <p class="hero-sub">
+    从 IO 感知到异步流水线——三代演进如何让 Transformer 的注意力计算突破硬件极限
+  </p>
+
+  <div class="version-badges">
+    <div class="v-badge v1"><div class="v-dot"></div>v1 · NeurIPS 2022 · IO-Aware Tiling</div>
+    <div class="v-badge v2"><div class="v-dot"></div>v2 · ICLR 2024 · 并行化重构</div>
+    <div class="v-badge v3"><div class="v-dot"></div>v3 · 2024 · Hopper 异步流水线</div>
+  </div>
+</section>
+
+<!-- ── TOC ── -->
+<section class="toc-section">
+  <div class="toc-card fade-in">
+    <div class="toc-title">// 目录</div>
+    <div class="toc-grid">
+      <a href="#background" class="toc-item"><span class="toc-num">01</span>背景：为什么 Attention 这么慢</a>
+      <a href="#v1" class="toc-item"><span class="toc-num">02</span>FlashAttention v1（2022）</a>
+      <a href="#v2" class="toc-item"><span class="toc-num">03</span>FlashAttention v2（2023）</a>
+      <a href="#v3" class="toc-item"><span class="toc-num">04</span>FlashAttention v3（2024）</a>
+      <a href="#comparison" class="toc-item"><span class="toc-num">05</span>三代对比总结</a>
+      <a href="#math" class="toc-item"><span class="toc-num">06</span>数学推导</a>
+      <a href="#engineering" class="toc-item"><span class="toc-num">07</span>工程实现要点</a>
+      <a href="#applications" class="toc-item"><span class="toc-num">08</span>应用场景与局限</a>
+    </div>
+  </div>
+</section>
+
+<div class="container">
+
+<!-- ══════════════════════════════════════════════
+     SECTION 1: BACKGROUND
+════════════════════════════════════════════════ -->
+<section id="background">
+  <div class="section-header fade-in">
+    <span class="section-num">01</span>
+    <h2 class="section-title">背景：为什么 Attention 这么慢？</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <h3>1.1 标准 Self-Attention 的计算与内存复杂度</h3>
+    <p>标准的 Scaled Dot-Product Attention 定义为：</p>
+
+    <div class="formula-block">
+      $$\text{Attention}(Q, K, V) = \text{softmax}\!\left(\frac{QK^T}{\sqrt{d_k}}\right)V$$
+    </div>
+
+    <p>其中 \(Q, K, V \in \mathbb{R}^{N \times d}\)，\(N\) 为序列长度，\(d\) 为头维度。核心问题在于 \(N \times N\) 的中间注意力矩阵：</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>操作</th><th>计算复杂度</th><th>内存复杂度</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>QKᵀ 矩阵乘法</td><td>\(O(N^2 d)\)</td><td>\(O(N^2)\)</td></tr>
+          <tr><td>Softmax</td><td>\(O(N^2)\)</td><td>\(O(N^2)\)</td></tr>
+          <tr><td>Attention × V</td><td>\(O(N^2 d)\)</td><td>\(O(Nd)\)</td></tr>
+          <tr><td><strong>合计</strong></td><td>\(O(N^2 d)\)</td><td><strong>\(O(N^2)\)</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout warn">
+      <div class="callout-icon">⚠️</div>
+      <div class="callout-body">当 <strong>N = 16384</strong>（16k context），<code>float16</code> 下注意力矩阵占用约 <strong>512 MB</strong>，完全超过 GPU 的 L2 Cache，必须频繁读写 HBM——这才是真正的瓶颈所在。</div>
+    </div>
+
+    <h3>1.2 GPU 内存层次结构：IO 才是瓶颈</h3>
+    <p>理解 FlashAttention 的核心前提是了解 GPU 的存储层次。带宽越高越靠近 SM，但容量也越小：</p>
+
+    <div class="mem-diagram">
+      <div class="mem-layer registers">
+        <div class="mem-name">Registers</div>
+        <div class="mem-bar-wrap"><div class="mem-bar">~几KB</div></div>
+        <div class="mem-bw">~数十 TB/s</div>
+      </div>
+      <div class="mem-layer sram">
+        <div class="mem-name">L1 / Shared Memory</div>
+        <div class="mem-bar-wrap"><div class="mem-bar">~几百KB</div></div>
+        <div class="mem-bw">~10 TB/s</div>
+      </div>
+      <div class="mem-layer l2">
+        <div class="mem-name">L2 Cache</div>
+        <div class="mem-bar-wrap"><div class="mem-bar">~几十MB</div></div>
+        <div class="mem-bw">~4 TB/s</div>
+      </div>
+      <div class="mem-layer hbm">
+        <div class="mem-name">HBM (Global Memory)</div>
+        <div class="mem-bar-wrap"><div class="mem-bar">几十~几百 GB</div></div>
+        <div class="mem-bw">~2-3 TB/s</div>
+      </div>
+    </div>
+
+    <p><strong>根本问题</strong>：标准 Attention 频繁将 \(N \times N\) 的中间矩阵写入 HBM 再读回，HBM I/O 复杂度高达 \(\Theta(N^2 d)\)。FlashAttention 的核心目标：<strong>让计算完全在 SRAM 内完成，大幅减少 HBM 访问次数。</strong></p>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 2: V1
+════════════════════════════════════════════════ -->
+<section id="v1" class="sec-v1">
+  <div class="section-header fade-in">
+    <span class="section-num" style="color:var(--gold)">02</span>
+    <h2 class="section-title">FlashAttention v1 <span class="tag tag-gold">NeurIPS 2022</span></h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <div class="paper-card">
+      <div class="paper-meta">
+        <div class="meta-label">论文</div><div class="meta-val">FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</div>
+        <div class="meta-label">作者</div><div class="meta-val">Tri Dao, Daniel Y. Fu, Stefano Ermon, Atri Rudra, Christopher Ré</div>
+        <div class="meta-label">机构</div><div class="meta-val">Stanford University</div>
+        <div class="meta-label">arXiv</div><div class="meta-val"><a href="https://arxiv.org/abs/2205.14135" style="color:var(--gold2)">2205.14135</a></div>
+      </div>
+    </div>
+
+    <h3>2.1 核心思想：Tiling + Online Softmax</h3>
+    <p>FlashAttention v1 的核心是<strong>分块（Tiling）</strong>与<strong>在线 Softmax（Online Softmax）</strong>的结合：将 Attention 计算分解为多个小块，使每块完全在 SRAM 中完成，避免将中间结果写回 HBM。</p>
+
+    <h3>2.2 在线 Softmax 算法</h3>
+    <p>经典 Softmax 需要两趟扫描：第一趟求最大值，第二趟计算指数和归一化。FlashAttention v1 利用数值稳定的在线算法，将两趟合并为一趟，维护三个状态量：</p>
+
+    <div class="math-block">
+      <p style="font-family: 'IBM Plex Mono', monospace; font-size:12px; color:var(--text3); margin-bottom:16px;">// 维护状态：当前已处理前 i 列</p>
+
+      <div class="derivation-step">
+        <div class="step-num">m</div>
+        <div style="color:var(--text2); font-size:14px;">\(m_i = \max(s_1, \ldots, s_i)\) &nbsp;—— 局部最大值（防止上溢）</div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-num">ℓ</div>
+        <div style="color:var(--text2); font-size:14px;">\(\ell_i = \sum_{j=1}^{i} e^{s_j - m_i}\) &nbsp;—— 局部归一化因子</div>
+      </div>
+
+      <div class="derivation-step">
+        <div class="step-num">O</div>
+        <div style="color:var(--text2); font-size:14px;">\(O_i\) &nbsp;—— 当前输出累积</div>
+      </div>
+
+      <p style="margin-top:20px; margin-bottom:8px; font-size:14px;">新增第 \(i+1\) 列时的<strong>更新公式</strong>：</p>
+
+      <div class="formula-block">
+        $$m_{i+1} = \max(m_i,\ s_{i+1})$$
+        $$\ell_{i+1} = e^{m_i - m_{i+1}} \cdot \ell_i + e^{s_{i+1} - m_{i+1}}$$
+        $$O_{i+1} = \frac{e^{m_i - m_{i+1}} \cdot \ell_i \cdot O_i + e^{s_{i+1} - m_{i+1}} \cdot v_{i+1}}{\ell_{i+1}}$$
+      </div>
+    </div>
+
+    <h3>2.3 分块算法流程</h3>
+
+    <pre><code>Input:  Q, K, V ∈ ℝ^{N×d}，块大小 B_r, B_c
+Output: O ∈ ℝ^{N×d}
+
+将 Q 分成 T_r = ⌈N/B_r⌉ 块；将 K, V 分成 T_c = ⌈N/B_c⌉ 块
+
+for i = 1 to T_r:                    # 外层：遍历 Q 块
+    从 HBM 加载 Q_i → SRAM
+    初始化 O_i = 0, ℓ_i = 0, m_i = -∞
+    
+    for j = 1 to T_c:                # 内层：遍历 K, V 块
+        从 HBM 加载 K_j, V_j → SRAM
+        
+        # ✅ 以下所有计算均在 SRAM 内完成
+        S_ij = Q_i × K_j^T / √d      # (B_r × B_c)
+        m̃_ij = rowmax(S_ij)
+        P̃_ij = exp(S_ij - m̃_ij)
+        ℓ̃_ij = rowsum(P̃_ij)
+        
+        # 在线状态更新
+        m_new = max(m_i, m̃_ij)
+        ℓ_new = exp(m_i-m_new)·ℓ_i + exp(m̃_ij-m_new)·ℓ̃_ij
+        O_i  ← (ℓ_i·exp(m_i-m_new)·O_i + exp(m̃_ij-m_new)·P̃_ij·V_j) / ℓ_new
+        m_i ← m_new; ℓ_i ← ℓ_new
+    
+    将 O_i 写回 HBM  # 仅写一次！</code></pre>
+
+    <h3>2.4 内存与 IO 分析</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>指标</th><th>标准 Attention</th><th>FlashAttention v1</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>HBM I/O 复杂度</td><td>\(\Theta(N^2 d)\)</td><td>\(\Theta(N^2 d^2 / M)\)</td></tr>
+          <tr><td>额外内存</td><td>\(O(N^2)\)</td><td>\(O(N)\)</td></tr>
+          <tr><td>数值精确性</td><td>✅ 精确</td><td>✅ 精确（数学等价）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout tip">
+      <div class="callout-icon">💡</div>
+      <div class="callout-body"><strong>反向传播的巧妙处理</strong>：FlashAttention v1 在反向时<strong>重新计算</strong>（Recomputation）前向的 Softmax 统计量 \((m, \ell)\)，仅需额外存储 \(O(N)\) 空间，以少量重复计算换取大量内存节省，实现了 <strong>64k+ 长序列</strong>训练的可能。</div>
+    </div>
+
+    <h3>2.5 性能表现</h3>
+    <div class="perf-grid">
+      <div class="perf-card c1"><div class="perf-val">3×</div><div class="perf-label">N=1k 时加速倍数</div></div>
+      <div class="perf-card c2"><div class="perf-val">6×</div><div class="perf-label">N=4k 时加速倍数</div></div>
+      <div class="perf-card c3"><div class="perf-val">O(N)</div><div class="perf-label">额外内存复杂度</div></div>
+      <div class="perf-card c4"><div class="perf-val">64k+</div><div class="perf-label">支持序列长度</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 3: V2
+════════════════════════════════════════════════ -->
+<section id="v2" class="sec-v2">
+  <div class="section-header fade-in">
+    <span class="section-num" style="color:var(--accent2)">03</span>
+    <h2 class="section-title">FlashAttention v2 <span class="tag tag-purple">ICLR 2024</span></h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <div class="paper-card">
+      <div class="paper-meta">
+        <div class="meta-label">论文</div><div class="meta-val">FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning</div>
+        <div class="meta-label">作者</div><div class="meta-val">Tri Dao</div>
+        <div class="meta-label">机构</div><div class="meta-val">Princeton University</div>
+        <div class="meta-label">arXiv</div><div class="meta-val"><a href="https://arxiv.org/abs/2307.08691" style="color:var(--accent3)">2307.08691</a></div>
+      </div>
+    </div>
+
+    <h3>3.1 v1 的瓶颈</h3>
+    <p>v1 主要优化了 HBM I/O，但在 GPU 算力利用率上仍有三大不足：</p>
+    <ul>
+      <li><strong>非矩阵乘法操作过多</strong>：每轮迭代的 rescaling 操作（乘除法）占比过高，而 GPU Tensor Core 只对 GEMM（矩阵乘法）高效</li>
+      <li><strong>并行化维度不足</strong>：序列维度上无法并行，无法充分利用 SM 数量</li>
+      <li><strong>Warp 间负载不均衡</strong>：work partitioning 策略导致 warp 同步开销</li>
+    </ul>
+
+    <h3>3.2 三大核心改进</h3>
+    <div class="improvement-grid">
+      <div class="improvement-card">
+        <div class="imp-num">// 改进 01</div>
+        <div class="imp-title">减少非 GEMM 操作</div>
+        <div class="imp-desc">将 rescaling 推迟到循环结束，维护未归一化输出 \(\tilde{O}\)，最后一次性除以 \(\ell\)。非矩阵乘法操作数减少约 <strong>2×</strong>。</div>
+      </div>
+      <div class="improvement-card">
+        <div class="imp-num">// 改进 02</div>
+        <div class="imp-title">Q 外循环策略</div>
+        <div class="imp-desc">将 Q 放在外循环，不同 Q 块间完全独立，序列维度可在前向和反向 pass 中<strong>完全并行</strong>，充分利用多 SM。</div>
+      </div>
+      <div class="improvement-card">
+        <div class="imp-num">// 改进 03</div>
+        <div class="imp-title">Split-Q Warp 策略</div>
+        <div class="imp-desc">从 split-K 改为 split-Q，不同 warp 处理不同 Q 行，<strong>消除 warp 间通信</strong>，降低同步开销。</div>
+      </div>
+    </div>
+
+    <h3>3.3 改进1 详解：推迟 Rescaling</h3>
+
+    <div class="formula-block">
+      <p style="font-size:13px; color:var(--text3); margin-bottom:8px;">// v2 循环中维护未归一化输出</p>
+      $$\tilde{O}^{(j)} = e^{m^{(j-1)} - m^{(j)}} \tilde{O}^{(j-1)} + e^{S_j - m^{(j)}} V_j$$
+      <p style="font-size:13px; color:var(--text3); margin-top:16px; margin-bottom:8px;">// 循环结束后一次归一化</p>
+      $$O = \tilde{O}^{(T_c)} \;/\; \ell^{(T_c)}$$
+    </div>
+
+    <h3>3.4 改进3 详解：Warp 分工对比</h3>
+    <div class="warp-compare">
+      <div class="warp-card old">
+        <div class="warp-ver">❌ v1 / Split-K（需要 warp 间同步）</div>
+        <pre style="margin:0; border:none; padding:0; background:transparent; font-size:12px;"><code>Warp 0: Q[0:16] × K[ 0: 32]
+Warp 1: Q[0:16] × K[32: 64]  # 需要 reduce ↓
+Warp 2: Q[0:16] × K[64: 96]  # 需要 reduce ↓
+Warp 3: Q[0:16] × K[96:128]  # 需要 reduce ↓
+        → warp 间通信 + 共享内存同步</code></pre>
+      </div>
+      <div class="warp-card new">
+        <div class="warp-ver">✅ v2 / Split-Q（完全独立）</div>
+        <pre style="margin:0; border:none; padding:0; background:transparent; font-size:12px;"><code>Warp 0: Q[ 0:16] × K[0:128]  # 独立 ✓
+Warp 1: Q[16:32] × K[0:128]  # 独立 ✓
+Warp 2: Q[32:48] × K[0:128]  # 独立 ✓
+Warp 3: Q[48:64] × K[0:128]  # 独立 ✓
+        → 零同步开销</code></pre>
+      </div>
+    </div>
+
+    <h3>3.5 性能表现</h3>
+    <div class="perf-grid">
+      <div class="perf-card c1"><div class="perf-val">2–4×</div><div class="perf-label">vs FlashAttention v1</div></div>
+      <div class="perf-card c2"><div class="perf-val">72%</div><div class="perf-label">A100 理论 FLOPS 利用率</div></div>
+      <div class="perf-card c3"><div class="perf-val">5–9×</div><div class="perf-label">vs PyTorch 标准实现</div></div>
+      <div class="perf-card c4"><div class="perf-val">GQA</div><div class="perf-label">支持 MQA / GQA</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 4: V3
+════════════════════════════════════════════════ -->
+<section id="v3" class="sec-v3">
+  <div class="section-header fade-in">
+    <span class="section-num" style="color:var(--teal)">04</span>
+    <h2 class="section-title">FlashAttention v3 <span class="tag tag-teal">2024 · Hopper</span></h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <div class="paper-card">
+      <div class="paper-meta">
+        <div class="meta-label">论文</div><div class="meta-val">FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision</div>
+        <div class="meta-label">作者</div><div class="meta-val">Jay Shah, Ganesh Bikshandi, Ying Zhang, Vijay Thakkar, Pradeep Ramani, Tri Dao</div>
+        <div class="meta-label">机构</div><div class="meta-val">Princeton University & NVIDIA</div>
+        <div class="meta-label">arXiv</div><div class="meta-val"><a href="https://arxiv.org/abs/2407.08608" style="color:var(--teal2)">2407.08608</a></div>
+      </div>
+    </div>
+
+    <h3>4.1 新硬件特性：Hopper GPU (H100)</h3>
+    <p>FA v3 专门针对 NVIDIA Hopper 架构（H100/H200）进行深度优化，充分利用三个关键新硬件特性：</p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-name">TMA</div>
+        <div class="feature-desc">Tensor Memory Accelerator<br>专用异步 DMA 引擎，可在计算进行时<strong>异步传输</strong>数据，无需占用 SM 资源。</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔥</div>
+        <div class="feature-name">WGMMA</div>
+        <div class="feature-desc">Warpgroup Matrix Multiply<br>新一代矩阵乘法指令，吞吐量是 Ampere HMMA 的 <strong>2×</strong>，延迟也更低。</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-name">FP8 Tensor Core</div>
+        <div class="feature-desc">支持 E4M3/E5M2 格式，计算吞吐量是 FP16 的 <strong>2×</strong>，显著加速推理场景。</div>
+      </div>
+    </div>
+
+    <h3>4.2 生产者-消费者异步流水线</h3>
+    <p>FA v3 的核心创新：将 warp 分为<strong>生产者（Producer）</strong>和<strong>消费者（Consumer）</strong>两组，利用 TMA 实现数据加载与计算的完全重叠：</p>
+
+    <div class="pipeline-viz">
+      <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3);margin-bottom:16px;">// 软件流水线示意（时间从左到右）</p>
+
+      <div style="margin-bottom:16px;">
+        <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--rose2);margin-bottom:8px;">无流水线：</p>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <div class="p-block p-load">Load K₁V₁</div>
+          <div class="p-block p-compute">Compute₁</div>
+          <div class="p-block p-load">Load K₂V₂</div>
+          <div class="p-block p-compute">Compute₂</div>
+          <div class="p-block p-load">Load K₃V₃</div>
+          <div class="p-block p-compute">Compute₃</div>
+        </div>
+      </div>
+
+      <div>
+        <p style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--green);margin-bottom:8px;">有流水线（加载延迟被完全隐藏）：</p>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+          <div class="p-block p-load">Load K₁V₁</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+          <div class="p-gap"></div>
+          <div class="p-block p-load">Load K₂V₂</div>
+          <div class="p-block p-compute">Compute₁</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px;">
+          <div class="p-gap"></div>
+          <div class="p-gap"></div>
+          <div class="p-block p-load">Load K₃V₃</div>
+          <div class="p-block p-compute">Compute₂</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <div class="p-gap"></div>
+          <div class="p-gap"></div>
+          <div class="p-gap"></div>
+          <div class="p-block p-compute">Compute₃</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>4.3 两阶段 Attention：WGMMA 与 Softmax 重叠</h3>
+    <p>为了进一步将矩阵乘法与 Softmax 计算重叠，FA v3 采用两阶段算法，利用 WGMMA 的异步执行窗口：</p>
+
+    <div class="math-block">
+      <div class="derivation-step">
+        <div class="step-num">①</div>
+        <div>
+          <p style="font-size:14px; color:var(--text); font-weight:600; margin-bottom:6px;">阶段1：Score 矩阵计算</p>
+          <p style="font-size:14px; color:var(--text2);">\(S_j = Q_i K_j^T / \sqrt{d}\)　（启动 WGMMA，异步执行）</p>
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-num">②</div>
+        <div>
+          <p style="font-size:14px; color:var(--text); font-weight:600; margin-bottom:6px;">阶段2：同时执行</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+            <div style="background:rgba(45,212,191,0.06);border:1px solid rgba(45,212,191,0.2);border-radius:8px;padding:16px;">
+              <p style="font-size:12px;color:var(--teal2);margin-bottom:8px;">WGMMA（异步）</p>
+              <p style="font-size:13px;color:var(--text2);">\(\tilde{O}_j \mathrel{+}= \tilde{P}_j \cdot V_j\)</p>
+            </div>
+            <div style="background:rgba(124,106,247,0.06);border:1px solid rgba(124,106,247,0.2);border-radius:8px;padding:16px;">
+              <p style="font-size:12px;color:var(--accent3);margin-bottom:8px;">Softmax（同时在CPU执行）</p>
+              <p style="font-size:13px;color:var(--text2);">\(m = \text{rowmax}(S_j)\)<br>\(\tilde{P}_j = e^{S_j - m}\)<br>\(\ell = \text{rowsum}(\tilde{P}_j)\)</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>4.4 FP8 低精度支持</h3>
+    <div class="callout info">
+      <div class="callout-icon">🔬</div>
+      <div class="callout-body">
+        <strong>惰性非相干处理（Incoherent Processing）</strong>：对 \(Q\) 和 \(K\) 预乘以随机哈达玛矩阵 \(H\)（正交矩阵），将极端值"分散"开，使 FP8 表示更稳定：
+        $$Q' = QH,\quad K' = KH$$
+        由于 \(H\) 正交，\(Q'K'^T = QHH^TK^T = QK^T\)，<strong>不改变最终 Attention 值</strong>，同时大幅降低 FP8 量化误差。
+      </div>
+    </div>
+
+    <h3>4.5 性能表现</h3>
+    <div class="perf-grid">
+      <div class="perf-card c3"><div class="perf-val">740 T</div><div class="perf-label">H100 FP16 前向 FLOPS/s</div></div>
+      <div class="perf-card c1"><div class="perf-val">75%</div><div class="perf-label">H100 理论峰值利用率</div></div>
+      <div class="perf-card c2"><div class="perf-val">1.5–2×</div><div class="perf-label">vs FlashAttention v2</div></div>
+      <div class="perf-card c4"><div class="perf-val">FP8</div><div class="perf-label">1.2T FLOPS/s（推理）</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 5: COMPARISON
+════════════════════════════════════════════════ -->
+<section id="comparison">
+  <div class="section-header fade-in">
+    <span class="section-num">05</span>
+    <h2 class="section-title">三代对比总结</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in compare-section">
+    <div class="table-wrap" style="border:none;">
+      <table class="cmp-table">
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th style="color:var(--gold2)">v1 (2022)</th>
+            <th style="color:var(--accent3)">v2 (2023)</th>
+            <th style="color:var(--teal2)">v3 (2024)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>核心创新</td><td>IO感知 + Tiling</td><td>并行化 + Work Partitioning</td><td>异步流水线 + 低精度</td></tr>
+          <tr><td>目标硬件</td><td>A100</td><td>A100 / H100</td><td>H100 / H200（Hopper专属）</td></tr>
+          <tr><td>内存复杂度</td><td>\(O(N)\)</td><td>\(O(N)\)</td><td>\(O(N)\)</td></tr>
+          <tr><td>HBM I/O</td><td>\(O(N^2d^2/M)\)</td><td>\(O(N^2d^2/M)\)</td><td>\(O(N^2d^2/M)\)</td></tr>
+          <tr><td>计算利用率</td><td>~35%</td><td>~72%</td><td>~75%</td></tr>
+          <tr><td>循环策略</td><td>K 外循环</td><td>Q 外循环</td><td>Q 外循环 + 异步</td></tr>
+          <tr><td>精度支持</td><td>FP16 / BF16</td><td>FP16 / BF16</td><td>FP16 / BF16 / FP8</td></tr>
+          <tr><td>反向传播</td><td>重计算</td><td>重计算（更优化）</td><td>重计算</td></tr>
+          <tr><td>新特性支持</td><td>—</td><td>GQA / MQA</td><td>TMA / WGMMA / FP8</td></tr>
+          <tr><td>vs 标准 Attention</td><td>3–6×</td><td>5–9×</td><td>7–15×</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 6: MATH
+════════════════════════════════════════════════ -->
+<section id="math">
+  <div class="section-header fade-in">
+    <span class="section-num">06</span>
+    <h2 class="section-title">数学推导：分块计算的正确性</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <h3>6.1 数值稳定 Softmax</h3>
+    <p>标准 Softmax 在 \(x_i\) 较大时会上溢，数值稳定版本减去全局最大值 \(m = \max_j x_j\)：</p>
+
+    <div class="formula-block">
+      $$\text{softmax}(x)_i = \frac{e^{x_i - m}}{\sum_{j=1}^N e^{x_j - m}},\quad m = \max_j x_j$$
+    </div>
+
+    <h3>6.2 分块 Softmax 的合并证明</h3>
+    <p>设 \(x = [x^{(1)}, x^{(2)}]\) 被分为两块，分别计算各块的局部统计量，然后合并：</p>
+
+    <div class="math-block">
+      <div class="derivation-step">
+        <div class="step-num">1</div>
+        <div style="font-size:14px; color:var(--text2);">
+          各块统计量：\(\quad m^{(k)} = \max x^{(k)},\quad \ell^{(k)} = \sum e^{x^{(k)} - m^{(k)}}\)
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-num">2</div>
+        <div style="font-size:14px; color:var(--text2);">
+          全局最大值：\(\quad m = \max(m^{(1)}, m^{(2)})\)
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-num">3</div>
+        <div style="font-size:14px; color:var(--text2);">
+          合并归一化因子：\(\quad \ell = e^{m^{(1)}-m} \ell^{(1)} + e^{m^{(2)}-m} \ell^{(2)}\)
+        </div>
+      </div>
+      <div class="derivation-step">
+        <div class="step-num">✓</div>
+        <div style="font-size:14px; color:var(--text2);">
+          则 \(\text{softmax}(x)^{(k)}_i = \frac{e^{x^{(k)}_i - m^{(k)}} \cdot e^{m^{(k)} - m}}{\ell}\) — 与全局计算结果完全一致
+        </div>
+      </div>
+    </div>
+
+    <h3>6.3 分块 Attention 输出的合并</h3>
+    <p>设注意力得分被分为两块 \(S^{(1)}, S^{(2)}\)，对应值矩阵 \(V_1, V_2\)，最终输出等于：</p>
+
+    <div class="formula-block">
+      $$O = \text{diag}(\ell)^{-1}\!\left(e^{m^{(1)}-m}\text{diag}(\ell^{(1)})\tilde{O}^{(1)} + e^{m^{(2)}-m}\text{diag}(\ell^{(2)})\tilde{O}^{(2)}\right)$$
+      $$= \text{softmax}\!\left([S^{(1)}, S^{(2)}]\right)\begin{bmatrix}V_1\\V_2\end{bmatrix} \quad \checkmark$$
+    </div>
+
+    <p>这证明了：<strong>在 SRAM 中对小块独立计算后合并，与对完整矩阵一次性计算，结果完全数学等价。</strong></p>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 7: ENGINEERING
+════════════════════════════════════════════════ -->
+<section id="engineering">
+  <div class="section-header fade-in">
+    <span class="section-num">07</span>
+    <h2 class="section-title">工程实现要点</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <h3>7.1 块大小的选择</h3>
+    <p>块大小 \(B_r, B_c\) 需满足 SRAM 容量约束（同时存放 Q、K、V 子块和中间结果）：</p>
+
+    <div class="formula-block">
+      $$B_r \cdot d + B_c \cdot d + B_r \cdot B_c \leq M_{\text{SRAM}}$$
+    </div>
+
+    <p>典型取值（d=64，A100 SRAM ~100KB per SM）：\(B_r = B_c = 64\) 或 128，需根据 \(d\) 和硬件参数调整。</p>
+
+    <h3>7.2 因果掩码的高效处理</h3>
+
+    <div class="callout tip">
+      <div class="callout-icon">⚡</div>
+      <div class="callout-body">对于 Decoder 的因果 Attention（下三角掩码），FlashAttention <strong>只对对角线附近的块</strong>应用掩码，远离对角线的下三角块和完整上三角块无需特殊处理——这使因果 Attention 的计算量自然减少约 <strong>50%</strong>（三角矩阵 vs 全矩阵）。</div>
+    </div>
+
+    <h3>7.3 反向传播：重计算策略</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>阶段</th><th>存储内容</th><th>不存储</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>前向 pass</td><td>\(m, \ell\)（各 \(O(N)\)），输出 \(O\)</td><td>\(P = \text{softmax}(QK^T/\sqrt{d})\)（\(O(N^2)\)）</td></tr>
+          <tr><td>反向 pass</td><td>利用 \(Q,K,V,O,m,\ell\) 重新计算 \(P\)</td><td>无需保留注意力矩阵</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>额外计算 FLOPs 约为前向的 <strong>1.1–1.2×</strong>，但节省了 \(O(N^2)\) 的 HBM 写入和读取。</p>
+
+    <h3>7.4 多头注意力的并行化</h3>
+    <p>不同的 head 和 batch 维度完全独立，各自映射到不同的 SM 上并行执行，充分利用 GPU 的大规模并行性——这也是为什么 FlashAttention 在头数和批大小较大时效益最显著。</p>
+  </div>
+</section>
+
+<div class="separator"></div>
+
+<!-- ══════════════════════════════════════════════
+     SECTION 8: APPLICATIONS
+════════════════════════════════════════════════ -->
+<section id="applications">
+  <div class="section-header fade-in">
+    <span class="section-num">08</span>
+    <h2 class="section-title">应用场景与局限</h2>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="fade-in">
+    <h3>8.1 主要应用场景</h3>
+    <div class="app-grid">
+      <div class="app-item"><div class="app-icon">🤖</div>长上下文 LLM 训练与推理</div>
+      <div class="app-item"><div class="app-icon">🖼️</div>高分辨率视觉 Transformer</div>
+      <div class="app-item"><div class="app-icon">🎬</div>视频/音频长序列处理</div>
+      <div class="app-item"><div class="app-icon">💻</div>代码生成（长文件上下文）</div>
+      <div class="app-item"><div class="app-icon">🎨</div>扩散模型 (DiT, SD3)</div>
+      <div class="app-item"><div class="app-icon">🧬</div>蛋白质序列建模</div>
+    </div>
+
+    <h3>8.2 生态系统集成</h3>
+    <p>FlashAttention 已成为深度学习基础设施的标准组件，被广泛集成到：</p>
+    <ul>
+      <li><strong>PyTorch</strong>：<code>torch.nn.functional.scaled_dot_product_attention</code> 内置支持</li>
+      <li><strong>HuggingFace Transformers</strong>：主要模型均支持 <code>attn_implementation="flash_attention_2"</code></li>
+      <li><strong>NVIDIA cuDNN / TensorRT</strong>：官方集成</li>
+      <li><strong>xFormers、Megatron-LM、DeepSpeed</strong>：大规模训练框架</li>
+      <li><strong>GPT-4、Llama 3、Gemma、Mistral</strong> 等主流模型</li>
+    </ul>
+
+    <h3>8.3 局限性</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>局限</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>硬件绑定</td><td>v3 仅支持 Hopper GPU，v2 在老架构上加速有限</td></tr>
+          <tr><td>自定义 Attention</td><td>稀疏 Attention、线性 Attention 等变体需重新实现内核</td></tr>
+          <tr><td>调试复杂</td><td>CUDA 内核调试难度高，需要专业 GPU 编程知识</td></tr>
+          <tr><td>精度权衡</td><td>FP8 模式存在精度损失，需要额外的缩放/校准策略</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+</div><!-- end container -->
+
+<!-- ── FOOTER ── -->
+<footer>
+  <p style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text3); letter-spacing:0.15em; text-transform:uppercase;">参考文献</p>
+  <ol class="ref-list">
+    <li>Dao et al. (2022). <em>FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness</em>. NeurIPS 2022. <a href="https://arxiv.org/abs/2205.14135">arXiv:2205.14135</a></li>
+    <li>Dao (2023). <em>FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning</em>. ICLR 2024. <a href="https://arxiv.org/abs/2307.08691">arXiv:2307.08691</a></li>
+    <li>Shah et al. (2024). <em>FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision</em>. <a href="https://arxiv.org/abs/2407.08608">arXiv:2407.08608</a></li>
+    <li>Vaswani et al. (2017). <em>Attention Is All You Need</em>. NeurIPS 2017.</li>
+    <li>NVIDIA (2023). <em>NVIDIA H100 Tensor Core GPU Architecture Whitepaper</em>.</li>
+  </ol>
+
+  <p style="margin-top:40px; font-size:12px; color:var(--text3);">
+    FlashAttention v1–v3 深度解析 · 生成于 2026
+  </p>
+</footer>
+
+<script>
+// Intersection Observer for fade-in animations
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// Animate memory bars on scroll
+const memObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      // bars are already set via CSS, just trigger visibility
+      entry.target.style.opacity = '1';
+    }
+  });
+}, { threshold: 0.3 });
+
+document.querySelectorAll('.mem-layer').forEach(el => memObserver.observe(el));
+</script>
+</body>
+</html>
