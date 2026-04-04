@@ -21,13 +21,6 @@ $$\text{SwiGLU}(x) = \text{SiLU}(x W_1) \odot (x W_2)$$
 - $$\odot$$：哈达玛积，逐元素相乘
 - 两路并行计算后相乘，实现门控信息流
 
-## 参数含义
-
-- $$x$$：网络输入特征
-- $$W_1, W_2$$：**两组独立可学习线性权重矩阵**
-  - 分别对输入做线性投影
-  - 一路经 SiLU 提取特征，一路作为门控系数
-
 ## 大模型 FFN 中实际结构
 
 $$\text{FFN}(x) = \left( \text{SiLU}(x W_{\text{gate}}) \odot x W_{\text{up}} \right) W_{\text{down}}$$
@@ -36,8 +29,11 @@ $$\text{FFN}(x) = \left( \text{SiLU}(x W_{\text{gate}}) \odot x W_{\text{up}} \r
 2. 门控相乘增强特征表达
 3. $$W_{\text{down}}$$ 降维投影回模型原始维度
 
+>  **`SiLU(x W_gate)` 这一整条是门控（gate）**  **`x W_up` 是被门控的特征（up projection）**\[ \text{FFN}(x) = \bigl( \underbrace{\text{gate}}_{\text{门控}} \odot \underbrace{\text{feature}}_{\text{被门控的内容}} \bigr) W_{\text{down}} \] 
+
 ## 核心优势
 
 1. 门控机制自适应控制信息流通，表达能力更强
 2. 参数利用效率更高，效果优于传统单激活 FFN
 3. 平滑激活函数，梯度更稳定，利于大模型训练
+
