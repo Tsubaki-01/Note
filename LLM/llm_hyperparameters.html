@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大模型训练超参数详解</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700;900&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0d0d0f;
+    --ink-soft: #3a3a45;
+    --ink-muted: #72728a;
+    --surface: #fafaf8;
+    --surface-2: #f2f2ee;
+    --surface-3: #e8e8e0;
+    --accent: #1a3a6b;
+    --accent-2: #2e5fa3;
+    --accent-3: #4a87e8;
+    --accent-warm: #c4501a;
+    --accent-gold: #b8860b;
+    --accent-green: #1a6b45;
+    --accent-red: #8b1a1a;
+    --border: #deded4;
+    --border-light: #eeeee8;
+    --note-bg: #e8f0fb;
+    --note-border: #4a87e8;
+    --warn-bg: #fdf3e3;
+    --warn-border: #d97706;
+    --code-bg: #1e1e2e;
+    --code-text: #cdd6f4;
+    --code-keyword: #cba6f7;
+    --code-string: #a6e3a1;
+    --code-number: #fab387;
+    --code-comment: #6c7086;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Noto Serif SC', 'Georgia', serif;
+    background: var(--surface);
+    color: var(--ink);
+    line-height: 1.85;
+    font-size: 16px;
+  }
+
+  /* === HERO HEADER === */
+  .hero {
+    background: var(--accent);
+    color: #fff;
+    padding: 80px 40px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(74,135,232,0.25) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 20%, rgba(196,80,26,0.15) 0%, transparent 50%);
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    right: -60px;
+    top: -60px;
+    width: 400px;
+    height: 400px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 50%;
+  }
+
+  .hero-inner {
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-3);
+    border: 1px solid rgba(74,135,232,0.4);
+    padding: 4px 12px;
+    border-radius: 2px;
+    margin-bottom: 24px;
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 4vw, 48px);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+    color: #fff;
+  }
+
+  .hero-desc {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    color: rgba(255,255,255,0.7);
+    max-width: 620px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  .hero-meta {
+    margin-top: 36px;
+    display: flex;
+    gap: 32px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .hero-meta span { display: flex; align-items: center; gap: 6px; }
+
+  /* === SIDEBAR NAV === */
+  .layout {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    max-width: 1140px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 40px 24px;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .sidebar-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 16px;
+  }
+
+  .nav-list { list-style: none; }
+
+  .nav-list li { margin-bottom: 2px; }
+
+  .nav-list a {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    border-left: 2px solid transparent;
+    transition: all 0.15s ease;
+    line-height: 1.4;
+  }
+
+  .nav-list a:hover {
+    background: var(--surface-2);
+    color: var(--accent);
+    border-left-color: var(--accent-3);
+  }
+
+  .nav-num {
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-right: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* === MAIN CONTENT === */
+  .main {
+    padding: 56px 60px 80px;
+    min-width: 0;
+  }
+
+  /* === SECTION BLOCKS === */
+  .section {
+    margin-bottom: 72px;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  .section h2 {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .section h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'Inter', sans-serif;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    margin: 28px 0 12px;
+  }
+
+  p {
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+    font-size: 15.5px;
+  }
+
+  strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  /* === TABLES === */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin: 20px 0;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  thead { background: var(--accent); }
+
+  thead th {
+    color: #fff;
+    font-weight: 600;
+    padding: 12px 16px;
+    text-align: left;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
+  }
+
+  tbody tr { border-bottom: 1px solid var(--border-light); }
+
+  tbody tr:last-child { border-bottom: none; }
+
+  tbody tr:nth-child(even) { background: var(--surface-2); }
+
+  tbody tr:hover { background: #eef3fc; }
+
+  td {
+    padding: 11px 16px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    vertical-align: top;
+  }
+
+  td:first-child {
+    font-weight: 600;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  /* === CODE === */
+  pre {
+    background: var(--code-bg);
+    border-radius: 8px;
+    padding: 24px;
+    overflow-x: auto;
+    margin: 20px 0;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative;
+  }
+
+  pre::before {
+    content: attr(data-lang);
+    position: absolute;
+    top: 10px;
+    right: 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(205,214,244,0.3);
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.7;
+    color: var(--code-text);
+  }
+
+  p code, li code, td code {
+    background: var(--surface-3);
+    color: var(--accent-warm);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+  }
+
+  .kw { color: var(--code-keyword); }
+  .str { color: var(--code-string); }
+  .num { color: var(--code-number); }
+  .cm { color: var(--code-comment); font-style: italic; }
+  .key { color: #89dceb; }
+  .val { color: #f38ba8; }
+
+  /* === ALERTS === */
+  .alert {
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin: 20px 0;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    font-size: 14.5px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .alert-note {
+    background: var(--note-bg);
+    border-left: 3px solid var(--note-border);
+    color: #1a3566;
+  }
+
+  .alert-warn {
+    background: var(--warn-bg);
+    border-left: 3px solid var(--warn-border);
+    color: #7c4a00;
+  }
+
+  .alert-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+
+  .alert strong { color: inherit; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; display: block; margin-bottom: 4px; }
+
+  /* === PRIORITY LADDER === */
+  .priority-bar {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+  }
+
+  .priority-bar p { color: var(--ink-soft); margin-bottom: 12px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .priority-chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .priority-item {
+    background: var(--accent);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .priority-arrow { color: var(--ink-muted); font-size: 16px; }
+
+  /* === PARAM CARDS === */
+  .param-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  .param-card {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  .param-card:hover {
+    box-shadow: 0 4px 16px rgba(26,58,107,0.1);
+    transform: translateY(-1px);
+  }
+
+  .param-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent-2);
+    margin-bottom: 6px;
+  }
+
+  .param-value {
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 8px;
+  }
+
+  .param-desc {
+    font-size: 13px;
+    color: var(--ink-muted);
+    font-family: 'Inter', sans-serif;
+    line-height: 1.5;
+  }
+
+  /* === DIAGNOSIS TABLE === */
+  .diagnosis td:first-child { color: var(--accent-red); font-family: 'JetBrains Mono', monospace; }
+  .diagnosis td:nth-child(2) { color: var(--accent-warm); }
+  .diagnosis td:nth-child(3) { color: var(--accent-green); font-weight: 600; }
+
+  /* === SUMMARY SECTION === */
+  .summary-box {
+    background: linear-gradient(135deg, var(--accent) 0%, #0a2856 100%);
+    border-radius: 12px;
+    padding: 40px;
+    color: #fff;
+    margin-top: 20px;
+  }
+
+  .summary-box h3 {
+    color: #93c5fd;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .summary-box p {
+    color: rgba(255,255,255,0.8);
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .checklist {
+    list-style: none;
+    margin: 16px 0;
+  }
+
+  .checklist li {
+    padding: 8px 0;
+    padding-left: 28px;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: rgba(255,255,255,0.75);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .checklist li::before {
+    content: '▸';
+    position: absolute;
+    left: 8px;
+    color: var(--accent-3);
+  }
+
+  /* === DIVIDER === */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+
+  /* === LISTS === */
+  ul, ol {
+    padding-left: 20px;
+    margin: 12px 0;
+  }
+
+  li {
+    color: var(--ink-soft);
+    font-size: 15px;
+    margin-bottom: 6px;
+    line-height: 1.7;
+  }
+
+  /* === BLOCKQUOTE (note style) === */
+  blockquote {
+    border-left: 3px solid var(--accent-3);
+    background: var(--note-bg);
+    padding: 12px 20px;
+    border-radius: 0 6px 6px 0;
+    margin: 20px 0;
+    font-style: normal;
+    font-size: 14px;
+    color: #1a3566;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* === WSD DIAGRAM === */
+  .wsd-diagram {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+    margin: 20px 0;
+  }
+
+  .wsd-stages {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .wsd-stage {
+    padding: 20px 16px;
+    text-align: center;
+  }
+
+  .wsd-stage:nth-child(1) { background: #dbeafe; }
+  .wsd-stage:nth-child(2) { background: #d1fae5; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .wsd-stage:nth-child(3) { background: #fee2e2; }
+
+  .wsd-stage-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    opacity: 0.7;
+  }
+
+  .wsd-stage-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  .wsd-arrow {
+    text-align: center;
+    margin-top: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ink-muted);
+  }
+
+  /* === FOOTER === */
+  footer {
+    background: var(--ink);
+    color: rgba(255,255,255,0.5);
+    padding: 32px 40px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  /* === SCROLLBAR === */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .main { padding: 32px 24px; }
+    .hero { padding: 48px 24px 40px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-tag">Deep Learning Engineering</div>
+    <h1>大模型训练超参数<br>详解与调优指南</h1>
+    <p class="hero-desc">系统梳理大语言模型训练全阶段的核心超参数——常用值范围、调参逻辑、工程经验与优化方向，覆盖预训练、SFT 微调、LoRA、RLHF 等主流范式。</p>
+    <div class="hero-meta">
+      <span>⬡ 10 个核心超参数类别</span>
+      <span>⬡ 覆盖 7B ~ 100B+ 规模</span>
+      <span>⬡ 含快速基线配置参考</span>
+    </div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-label">目录导航</div>
+    <ul class="nav-list">
+      <li><a href="#lr"><span class="nav-num">01</span>学习率</a></li>
+      <li><a href="#batch"><span class="nav-num">02</span>批量大小</a></li>
+      <li><a href="#seqlen"><span class="nav-num">03</span>序列长度</a></li>
+      <li><a href="#optimizer"><span class="nav-num">04</span>优化器参数</a></li>
+      <li><a href="#gradclip"><span class="nav-num">05</span>梯度裁剪</a></li>
+      <li><a href="#scheduler"><span class="nav-num">06</span>学习率调度</a></li>
+      <li><a href="#dropout"><span class="nav-num">07</span>Dropout 与正则化</a></li>
+      <li><a href="#lora"><span class="nav-num">08</span>LoRA 专属超参</a></li>
+      <li><a href="#data"><span class="nav-num">09</span>数据相关超参</a></li>
+      <li><a href="#best"><span class="nav-num">10</span>综合最佳实践</a></li>
+    </ul>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- INTRO -->
+    <p style="font-size:16px; color:var(--ink-soft); margin-bottom:48px; line-height:1.9; max-width:640px;">
+      大模型训练是多因素耦合的复杂工程，超参数的选择直接影响收敛速度、最终性能与训练稳定性。本文按<strong>优先级</strong>系统梳理各类超参数，并提供可直接参考的实践数值。
+    </p>
+
+    <!-- ① LEARNING RATE -->
+    <section class="section" id="lr">
+      <div class="section-header">
+        <div class="section-num">01</div>
+        <h2>学习率（Learning Rate）</h2>
+      </div>
+
+      <h3>常用值范围</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>训练阶段</th><th>典型范围</th><th>代表模型参考值</th></tr></thead>
+          <tbody>
+            <tr><td>预训练（from scratch）</td><td><code>1e-4</code> ~ <code>3e-4</code></td><td>LLaMA-3: 3e-4 / GPT-3: 6e-4</td></tr>
+            <tr><td>全量微调（Full Fine-tuning）</td><td><code>1e-5</code> ~ <code>5e-5</code></td><td>Alpaca: 2e-5</td></tr>
+            <tr><td>LoRA / QLoRA</td><td><code>1e-4</code> ~ <code>3e-4</code></td><td>LoRA 论文: 2e-4</td></tr>
+            <tr><td>RLHF PPO 阶段</td><td><code>1e-6</code> ~ <code>1e-5</code></td><td>InstructGPT: 5e-7</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>调参逻辑</h3>
+      <p><strong>学习率是最敏感的超参数</strong>——过高导致 loss 震荡甚至 NaN，过低则收敛极慢甚至陷入局部最优。</p>
+
+      <div class="param-grid">
+        <div class="param-card">
+          <div class="param-name">Scaling Law 视角</div>
+          <div class="param-desc">模型越大，学习率越小。参数量从 1B 到 70B，学习率通常下调 2~5 倍。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">Batch Size 联动</div>
+          <div class="param-desc">Batch 扩大 k 倍 → LR 扩大 √k 倍（大模型推荐），保持训练稳定性。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">Warmup 策略</div>
+          <div class="param-name-val" style="font-size:18px; font-weight:900; font-family:monospace; color:var(--ink);">500 ~ 2000 steps</div>
+          <div class="param-desc">线性升至目标学习率，占总步数 1%~3%。</div>
+        </div>
+      </div>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>优先使用 <strong>Cosine Decay + Warmup</strong> 的组合调度策略</li>
+        <li>训练中途出现 loss spike → 临时降低学习率至 1/3，观察是否恢复</li>
+        <li>建议使用 <strong>LR Finder</strong> 或网格搜索确定初始值</li>
+        <li><strong>分层学习率（Layerwise LR Decay）</strong>：底层更小的 LR，逐层递增，微调尤为有效</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ② BATCH SIZE -->
+    <section class="section" id="batch">
+      <div class="section-header">
+        <div class="section-num">02</div>
+        <h2>批量大小（Batch Size）</h2>
+      </div>
+
+      <h3>常用值范围</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>场景</th><th>Global Batch Size</th><th>Micro Batch Size</th></tr></thead>
+          <tbody>
+            <tr><td>预训练（A100 集群）</td><td>1M ~ 4M tokens/step</td><td>1 ~ 4 per GPU</td></tr>
+            <tr><td>监督微调（SFT）</td><td>128 ~ 512 samples</td><td>1 ~ 8 per GPU</td></tr>
+            <tr><td>RLHF</td><td>64 ~ 256</td><td>取决于显存</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="alert alert-note">
+        <span class="alert-icon">ℹ</span>
+        <div><strong>计算公式</strong>Global Batch Size = Micro Batch Size × 梯度累积步数 × GPU 数量</div>
+      </div>
+
+      <h3>调参逻辑</h3>
+      <div class="param-grid">
+        <div class="param-card">
+          <div class="param-name">大 Batch 优势</div>
+          <div class="param-desc">更稳定的梯度估计，训练曲线平滑；更高的硬件利用率；允许更大的学习率。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">大 Batch 代价</div>
+          <div class="param-desc">泛化能力下降（易陷入 sharp minima）；显存消耗成倍增加。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">梯度累积方案</div>
+          <div class="param-desc">不增加显存的前提下模拟大 Batch，是主流工程选择。</div>
+        </div>
+      </div>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>预训练以 <strong>token 数量</strong>衡量 Batch Size（LLaMA 用 4M tokens/step）</li>
+        <li>微调关注<strong>样本多样性</strong>，Batch 不宜过大（512~1024 samples 通常够用）</li>
+        <li>使用 <strong>动态批次（Dynamic Batching）</strong>按序列长度分桶，提升 GPU 效率</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ③ SEQUENCE LENGTH -->
+    <section class="section" id="seqlen">
+      <div class="section-header">
+        <div class="section-num">03</div>
+        <h2>序列长度（Context Length）</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>模型规模</th><th>预训练长度</th><th>微调 / 推理长度</th></tr></thead>
+          <tbody>
+            <tr><td>7B 级别</td><td>2K ~ 4K</td><td>4K ~ 32K</td></tr>
+            <tr><td>13B ~ 70B</td><td>4K</td><td>4K ~ 128K</td></tr>
+            <tr><td>100B+</td><td>2K ~ 8K</td><td>根据需求扩展</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>序列长度直接影响显存消耗（Attention 计算复杂度为 O(n²)）。长序列扩展通常采用两阶段：先用短序列预训练，再用长序列继续训练。</p>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>预训练时控制长序列比例（约 5%~10%），避免 GPU 利用率骤降</li>
+        <li>使用 <strong>Flash Attention 2</strong> 将显存复杂度降至 O(n)</li>
+        <li>RoPE 通过 <strong>YaRN / LongRoPE</strong> 低成本扩展上下文</li>
+        <li>序列长度扩展时，学习率应降至原来的 1/3 ~ 1/5</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ④ OPTIMIZER -->
+    <section class="section" id="optimizer">
+      <div class="section-header">
+        <div class="section-num">04</div>
+        <h2>优化器参数（AdamW & Others）</h2>
+      </div>
+
+      <h3>AdamW 核心参数</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>参数</th><th>常用值</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>β₁（一阶动量）</td><td><code>0.9</code></td><td>控制梯度指数移动平均，几乎不需调整</td></tr>
+            <tr><td>β₂（二阶动量）</td><td><code>0.95</code> ~ <code>0.999</code></td><td>大模型推荐 0.95，提升响应速度</td></tr>
+            <tr><td>ε（数值稳定性）</td><td><code>1e-8</code> ~ <code>1e-5</code></td><td>BF16 训练建议 1e-6 ~ 1e-5</td></tr>
+            <tr><td>weight_decay</td><td><code>0.01</code> ~ <code>0.1</code></td><td>通常设为 0.1，Embedding / Bias 不施加</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="alert alert-warn">
+        <span class="alert-icon">⚠</span>
+        <div><strong>注意</strong>β₂ 过大（0.999）在训练初期会导致梯度估计滞后，对 loss spike 响应变慢。大模型推荐 <code>0.95</code> ~ <code>0.98</code>。</div>
+      </div>
+
+      <h3>新兴优化器对比</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>优化器</th><th>特点</th><th>适用场景</th></tr></thead>
+          <tbody>
+            <tr><td>AdamW</td><td>稳定，成熟</td><td>通用默认选择</td></tr>
+            <tr><td>Lion</td><td>仅符号更新，显存更省</td><td>超大模型，资源受限</td></tr>
+            <tr><td>Muon</td><td>矩阵正交更新</td><td>实验性，部分场景更快收敛</td></tr>
+            <tr><td>Sophia</td><td>二阶优化近似</td><td>研究阶段</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>大模型（&gt;30B）建议尝试 <code>β₂ = 0.95</code>，提升稳定性</li>
+        <li><strong>分层 Weight Decay</strong>：越靠近输入层越小</li>
+        <li>8-bit Adam（bitsandbytes）可将优化器状态显存降至 1/4</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ⑤ GRADIENT CLIPPING -->
+    <section class="section" id="gradclip">
+      <div class="section-header">
+        <div class="section-num">05</div>
+        <h2>梯度裁剪（Gradient Clipping）</h2>
+      </div>
+
+      <div class="param-grid">
+        <div class="param-card">
+          <div class="param-name">max_grad_norm（通用）</div>
+          <div class="param-value">1.0</div>
+          <div class="param-desc">LLaMA、GPT 系列均使用此值，几乎是大模型标配。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">max_grad_norm（不稳定时）</div>
+          <div class="param-value">0.3 ~ 0.5</div>
+          <div class="param-desc">训练频繁出现 loss spike 时临时降低，恢复后可调回 1.0。</div>
+        </div>
+      </div>
+
+      <p>梯度裁剪是防止梯度爆炸的核心手段。当梯度全局 L2 范数超过阈值时，按比例缩放所有梯度。</p>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li><strong>监控 grad_norm</strong> 是必要的日志指标，突然升高是 loss spike 的预警信号</li>
+        <li>裁剪值不宜过小，否则会人为压制有效更新，导致收敛变慢</li>
+        <li>混合精度训练（BF16/FP16）下，裁剪前确保数值缩放正确</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ⑥ LR SCHEDULER -->
+    <section class="section" id="scheduler">
+      <div class="section-header">
+        <div class="section-num">06</div>
+        <h2>学习率调度策略（LR Scheduler）</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>策略</th><th>适用场景</th><th>特点</th></tr></thead>
+          <tbody>
+            <tr><td>Cosine Decay</td><td>预训练、大模型通用</td><td>平滑下降，尾段趋近 0</td></tr>
+            <tr><td>Linear Decay</td><td>微调任务</td><td>简单稳定，可预测</td></tr>
+            <tr><td>Cosine with Restarts</td><td>持续训练 / 多任务</td><td>周期性重新激活</td></tr>
+            <tr><td>Constant + Warmup</td><td>快速实验</td><td>无衰减，适合短期验证</td></tr>
+            <tr><td><strong>WSD（Warmup-Stable-Decay）</strong></td><td>最新大模型趋势</td><td>MiniCPM、Falcon 等采用</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>WSD 调度策略详解</h3>
+
+      <div class="wsd-diagram">
+        <div class="wsd-stages">
+          <div class="wsd-stage">
+            <div class="wsd-stage-label" style="color:#1e40af;">阶段一</div>
+            <div class="wsd-stage-name">Warmup</div>
+            <div style="font-size:12px; color:#374151; margin-top:6px; font-family:Inter,sans-serif;">线性升至目标 LR<br>1%~3% 总步数</div>
+          </div>
+          <div class="wsd-stage">
+            <div class="wsd-stage-label" style="color:#065f46;">阶段二（主体）</div>
+            <div class="wsd-stage-name">Stable LR</div>
+            <div style="font-size:12px; color:#374151; margin-top:6px; font-family:Inter,sans-serif;">长期稳定训练<br>可随时保存 checkpoint</div>
+          </div>
+          <div class="wsd-stage">
+            <div class="wsd-stage-label" style="color:#991b1b;">阶段三</div>
+            <div class="wsd-stage-name">Decay</div>
+            <div style="font-size:12px; color:#374151; margin-top:6px; font-family:Inter,sans-serif;">快速收敛冲刺<br>收益显著</div>
+          </div>
+        </div>
+        <div class="wsd-arrow">↑ WSD 调度的最大优势：Stable 阶段可灵活延长训练而无需重新设计调度曲线</div>
+      </div>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>预训练首选 <strong>Cosine Decay + Warmup</strong></li>
+        <li>持续训练（Continual Pre-training）推荐 <strong>WSD</strong> 策略</li>
+        <li>Warmup 比例控制在总步数的 <code>1% ~ 3%</code></li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ⑦ DROPOUT -->
+    <section class="section" id="dropout">
+      <div class="section-header">
+        <div class="section-num">07</div>
+        <h2>Dropout 与正则化</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>参数</th><th>预训练</th><th>微调</th></tr></thead>
+          <tbody>
+            <tr><td>dropout</td><td><code>0.0</code> ~ <code>0.1</code></td><td><code>0.05</code> ~ <code>0.1</code></td></tr>
+            <tr><td>attention_dropout</td><td><code>0.0</code></td><td><code>0.0</code> ~ <code>0.05</code></td></tr>
+            <tr><td>residual_dropout</td><td><code>0.0</code> ~ <code>0.1</code></td><td><code>0.05</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>大模型预训练阶段通常<strong>不使用或使用极小的 Dropout</strong>——大规模数据本身提供了充足的正则化效果；超大模型（&gt;30B）几乎完全不使用 Dropout。</p>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>数据量充足时：<code>dropout = 0.0</code></li>
+        <li>数据量少的微调：<code>dropout = 0.05</code> ~ <code>0.1</code></li>
+        <li><strong>Label Smoothing</strong>（0.0 ~ 0.1）是比 Dropout 更稳定的正则化替代方案</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ⑧ LORA -->
+    <section class="section" id="lora">
+      <div class="section-header">
+        <div class="section-num">08</div>
+        <h2>LoRA 专属超参数</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>参数</th><th>常用值</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>lora_r（秩）</td><td><code>8</code> ~ <code>64</code></td><td>越大表达能力越强，显存消耗越高</td></tr>
+            <tr><td>lora_alpha</td><td><code>16</code> ~ <code>128</code></td><td>缩放因子，通常设为 2 × lora_r</td></tr>
+            <tr><td>lora_dropout</td><td><code>0.0</code> ~ <code>0.1</code></td><td>LoRA 层的 Dropout</td></tr>
+            <tr><td>应用位置（最小）</td><td>Q, V</td><td>仅注意力的查询和值投影</td></tr>
+            <tr><td>应用位置（最大）</td><td>Q,K,V,O,FFN</td><td>接近全量微调效果</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>alpha / r 比值的意义</h3>
+      <pre data-lang="math"><code><span class="cm"># 有效学习率公式</span>
+effective_lr = lr × (<span class="key">lora_alpha</span> / <span class="key">lora_r</span>)
+
+<span class="cm"># alpha/r = 1：LoRA 贡献与原权重等量级</span>
+<span class="cm"># alpha/r = 2：放大 LoRA 贡献（最常见设置）</span>
+<span class="cm"># 推荐：固定 alpha = 2r 作为通用稳健策略</span></code></pre>
+
+      <h3>按任务复杂度选择 r</h3>
+      <div class="param-grid">
+        <div class="param-card">
+          <div class="param-name">低复杂度任务</div>
+          <div class="param-value">r = 8~16</div>
+          <div class="param-desc">格式遵循、简单问答，资源消耗极低。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">高复杂度任务</div>
+          <div class="param-value">r = 32~64</div>
+          <div class="param-desc">代码生成、逻辑推理，需要更强表达能力。</div>
+        </div>
+        <div class="param-card">
+          <div class="param-name">接近全量效果</div>
+          <div class="param-value">r = 64~128</div>
+          <div class="param-desc">应用于所有线性层，预算受限时的最优选择。</div>
+        </div>
+      </div>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li><strong>DoRA</strong>（Weight-Decomposed LoRA）：进一步提升表达能力</li>
+        <li><strong>RsLoRA</strong>：自动将 alpha 缩放为 alpha / √r，更稳定</li>
+        <li>长上下文任务：扩大应用范围至 FFN 层效果更佳</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ⑨ DATA -->
+    <section class="section" id="data">
+      <div class="section-header">
+        <div class="section-num">09</div>
+        <h2>数据相关超参数</h2>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>参数</th><th>常用值</th><th>说明</th></tr></thead>
+          <tbody>
+            <tr><td>num_epochs（预训练）</td><td><code>1 ~ 3</code></td><td>大数据集单轮即可</td></tr>
+            <tr><td>num_epochs（微调）</td><td><code>1 ~ 5</code></td><td>小数据集可多轮，防过拟合</td></tr>
+            <tr><td>data_mix_ratio</td><td>任务: 通用 = 1~9 : 1</td><td>防止灾难性遗忘</td></tr>
+            <tr><td>packing</td><td>启用</td><td>将多个短样本打包，提升吞吐</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <blockquote>
+        <strong>Chinchilla 法则</strong>：最优训练 token 数 ≈ 模型参数量 × 20。以 7B 模型为例，最优训练量约为 140B tokens。
+      </blockquote>
+
+      <h3>优化方向</h3>
+      <ul>
+        <li>使用 <strong>Data Curriculum</strong>（先易后难）可提升最终模型质量</li>
+        <li>预训练数据去重（MinHash LSH 等）比增加训练轮次更有效</li>
+        <li>监控训练集 perplexity，过早收敛说明数据多样性不足</li>
+        <li>微调加入少量通用数据（5%~10%），显著降低灾难性遗忘风险</li>
+      </ul>
+    </section>
+
+    <hr class="divider">
+
+    <!-- ⑩ BEST PRACTICES -->
+    <section class="section" id="best">
+      <div class="section-header">
+        <div class="section-num">10</div>
+        <h2>综合调参策略与最佳实践</h2>
+      </div>
+
+      <h3>调参优先级</h3>
+      <div class="priority-bar">
+        <p>调参优先级排序（从高到低）</p>
+        <div class="priority-chain">
+          <span class="priority-item">学习率</span>
+          <span class="priority-arrow">›</span>
+          <span class="priority-item">Batch Size</span>
+          <span class="priority-arrow">›</span>
+          <span class="priority-item">序列长度</span>
+          <span class="priority-arrow">›</span>
+          <span class="priority-item">优化器参数</span>
+          <span class="priority-arrow">›</span>
+          <span class="priority-item">Dropout</span>
+          <span class="priority-arrow">›</span>
+          <span class="priority-item">LoRA 参数</span>
+        </div>
+      </div>
+
+      <h3>快速基线配置参考</h3>
+
+      <p><strong>预训练基线（7B 规模）</strong></p>
+      <pre data-lang="yaml"><code><span class="key">learning_rate</span>: <span class="num">3e-4</span>
+<span class="key">lr_scheduler</span>: <span class="str">cosine</span>
+<span class="key">warmup_steps</span>: <span class="num">2000</span>
+<span class="key">batch_size_tokens</span>: <span class="str">4M</span>
+<span class="key">max_seq_len</span>: <span class="num">4096</span>
+<span class="key">optimizer</span>: <span class="str">adamw</span>
+<span class="key">beta1</span>: <span class="num">0.9</span>
+<span class="key">beta2</span>: <span class="num">0.95</span>
+<span class="key">weight_decay</span>: <span class="num">0.1</span>
+<span class="key">grad_clip</span>: <span class="num">1.0</span></code></pre>
+
+      <p><strong>SFT 微调基线（7B，LoRA）</strong></p>
+      <pre data-lang="yaml"><code><span class="key">learning_rate</span>: <span class="num">2e-4</span>
+<span class="key">lr_scheduler</span>: <span class="str">cosine</span>
+<span class="key">warmup_ratio</span>: <span class="num">0.03</span>
+<span class="key">num_epochs</span>: <span class="num">3</span>
+<span class="key">lora_r</span>: <span class="num">16</span>
+<span class="key">lora_alpha</span>: <span class="num">32</span>
+<span class="key">lora_dropout</span>: <span class="num">0.05</span>
+<span class="key">target_modules</span>: [<span class="str">q_proj</span>, <span class="str">v_proj</span>, <span class="str">k_proj</span>, <span class="str">o_proj</span>]</code></pre>
+
+      <h3>常见问题诊断</h3>
+      <div class="table-wrap">
+        <table class="diagnosis">
+          <thead><tr><th>现象</th><th>可能原因</th><th>解决方案</th></tr></thead>
+          <tbody>
+            <tr><td>Loss NaN / 爆炸</td><td>学习率过高 / 梯度爆炸</td><td>降低 LR，增大 grad_clip</td></tr>
+            <tr><td>Loss 不下降</td><td>学习率过低 / 数据质量差</td><td>升高 LR，检查数据</td></tr>
+            <tr><td>Loss 下降后反弹</td><td>LR 未衰减 / 数据噪声</td><td>启用 LR Decay，清洗数据</td></tr>
+            <tr><td>过拟合</td><td>数据量不足 / 轮数过多</td><td>增大正则化，减少 epochs</td></tr>
+            <tr><td>GPU 利用率低</td><td>Batch 过小 / 序列不均匀</td><td>增大 Batch，启用 packing</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- SUMMARY BOX -->
+      <div class="summary-box">
+        <h3>工程经验总结</h3>
+        <ul class="checklist">
+          <li>先用 1B 模型验证超参配置，再扩展到 7B / 13B</li>
+          <li>监控关键指标：loss、grad_norm、lr、tokens/sec、GPU 利用率</li>
+          <li>至少保存最近 3 个 checkpoint，防止 loss spike 后无法回退</li>
+          <li>使用确定性种子（seed = 42），对比实验必须固定</li>
+          <li>批量大小、序列长度不要一步到位，渐进式扩展</li>
+          <li>理解每个超参数背后的数学直觉，比死记推荐值更重要</li>
+        </ul>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  <p>大模型训练超参数详解 · 本文覆盖预训练、SFT、LoRA、RLHF 等主流训练范式 · 数据仅供参考，实际调参以具体模型架构与数据为准</p>
+</footer>
+
+<script>
+  // Smooth active state for nav
+  const navLinks = document.querySelectorAll('.nav-list a');
+  const sections = document.querySelectorAll('.section');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(a => a.style.cssText = '');
+        const id = entry.target.getAttribute('id');
+        const link = document.querySelector(`.nav-list a[href="#${id}"]`);
+        if (link) {
+          link.style.cssText = 'background:var(--surface-2); color:var(--accent); border-left-color:var(--accent-3); font-weight:600;';
+        }
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
