@@ -1,9 +1,3 @@
----
-title: LoRA 与 QLoRA 深度解析：大模型高效微调技术全指南
-author: Claude
-description: 从数学原理到工程实践，全面解析 LoRA 与 QLoRA 微调技术，以及配套 Skills 工具链的使用方法
----
-
 # LoRA 与 QLoRA 深度解析：大模型高效微调技术全指南
 
 ---
